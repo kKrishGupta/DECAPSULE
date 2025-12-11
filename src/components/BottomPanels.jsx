@@ -34,33 +34,40 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
 
   return (
     <div className="h-40 bg-card">
-      <Tabs defaultValue="watch" className="h-full flex flex-col">
+      <Tabs defaultValue="output" className="h-full flex flex-col">
         <div className="px-6 py-2 border-b border-border">
           <TabsList className="bg-muted">
-            <TabsTrigger
-              value="watch"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Watch
-            </TabsTrigger>
-            <TabsTrigger
-              value="stack"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Call Stack
-            </TabsTrigger>
-            <TabsTrigger
-              value="logs"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Logs
-            </TabsTrigger>
+            
+            {/* 🔄 OUTPUT NOW FIRST */}
             <TabsTrigger
               value="output"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
             >
               Output
             </TabsTrigger>
+
+            <TabsTrigger
+              value="stack"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+            >
+              Call Stack
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="logs"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+            >
+              Logs
+            </TabsTrigger>
+
+            {/* 🔄 WATCH MOVED HERE */}
+            <TabsTrigger
+              value="watch"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+            >
+              Watch
+            </TabsTrigger>
+
             <TabsTrigger
               value="explanation"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
@@ -71,26 +78,31 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <TabsContent value="watch" className="h-full m-0">
+
+          {/* 🔄 OUTPUT TAB FIRST */}
+          <TabsContent value="output" className="h-full m-0">
             <ScrollArea className="h-full p-6">
               {!isExecuted ? (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Run code to watch variables</p>
+                  <p className="text-muted-foreground">Run code to view output</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {variables.map((variable, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between p-3 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm text-primary">{variable.name}</span>
-                        <span className="text-xs text-muted-foreground">{variable.type}</span>
+                <div className="bg-black rounded-md p-4 border border-border">
+                  <div className="font-mono text-sm leading-relaxed">
+                    {output.map((line, i) => (
+                      <div key={i} className={
+                        line.startsWith('>')
+                          ? 'text-cyan-400 font-bold'
+                          : line.startsWith('✓')
+                          ? 'text-green-400'
+                          : line === ''
+                          ? 'h-2'
+                          : 'text-green-300'
+                      }>
+                        {line || '\u00a0'}
                       </div>
-                      <span className="font-mono text-sm text-foreground">{variable.value}</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </ScrollArea>
@@ -154,6 +166,32 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
             </ScrollArea>
           </TabsContent>
 
+          {/* 🔄 WATCH TAB MOVED HERE */}
+          <TabsContent value="watch" className="h-full m-0">
+            <ScrollArea className="h-full p-6">
+              {!isExecuted ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">Run code to watch variables</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {variables.map((variable, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-sm text-primary">{variable.name}</span>
+                        <span className="text-xs text-muted-foreground">{variable.type}</span>
+                      </div>
+                      <span className="font-mono text-sm text-foreground">{variable.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
           <TabsContent value="explanation" className="h-full m-0">
             <ScrollArea className="h-full p-6">
               <div className="space-y-4">
@@ -174,26 +212,6 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
                   </p>
                 </div>
               </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="output" className="h-full m-0">
-            <ScrollArea className="h-full p-6">
-              {!isExecuted ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Run code to view output</p>
-                </div>
-              ) : (
-                <div className="bg-black rounded-md p-4 border border-border">
-                  <div className="font-mono text-sm leading-relaxed">
-                    {output.map((line, i) => (
-                      <div key={i} className={line.startsWith('>') ? 'text-cyan-400 font-bold' : line.startsWith('✓') ? 'text-green-400' : line === '' ? 'h-2' : 'text-green-300'}>
-                        {line || '\u00a0'}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </ScrollArea>
           </TabsContent>
         </div>
