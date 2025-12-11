@@ -23,31 +23,31 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
   ];
 
   return (
-    <div className="h-64 bg-card">
+    <div className="h-40 bg-card">
       <Tabs defaultValue="watch" className="h-full flex flex-col">
         <div className="px-6 py-2 border-b border-border">
           <TabsList className="bg-muted">
             <TabsTrigger
               value="watch"
-              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
             >
               Watch
             </TabsTrigger>
             <TabsTrigger
               value="stack"
-              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
             >
               Call Stack
             </TabsTrigger>
             <TabsTrigger
               value="logs"
-              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
             >
               Logs
             </TabsTrigger>
             <TabsTrigger
               value="explanation"
-              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
             >
               Explanation
             </TabsTrigger>

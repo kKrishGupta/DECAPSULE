@@ -1,5 +1,5 @@
-// App.jsx
-import React, { useState, useEffect } from "react";
+// App.jsx  (complete file)
+import React, { useState, useEffect, useRef } from "react";
 
 // MAIN COMPONENTS
 import { Navbar } from "./components/Navbar.jsx";
@@ -15,7 +15,6 @@ import { ProfileModal } from "./components/ProfileModal.jsx";
 import { Dashboard } from "./components/views/Dashboard.jsx";
 import { Projects } from "./components/views/Projects.jsx";
 import { Tests } from "./components/views/Tests.jsx";
-import { DebugView } from "./components/views/DebugView.jsx";
 import { Settings } from "./components/views/Settings.jsx";
 
 // PDF Library
@@ -74,7 +73,7 @@ console.log(quicksort([5, 3, 8, 1, 2]));`,
   },
 };
 
-/* ------------------ LOCAL STORAGE FUNCTIONS ------------------ */
+/* ------------------ LOCAL STORAGE ------------------ */
 function loadFromStorage() {
   try {
     return JSON.parse(localStorage.getItem("decapsule_files_v1")) || null;
@@ -82,11 +81,18 @@ function loadFromStorage() {
     return null;
   }
 }
-
 function saveToStorage(data) {
   try {
     localStorage.setItem("decapsule_files_v1", JSON.stringify(data));
   } catch {}
+}
+
+/* ------------------ Base64 Helpers ------------------ */
+function base64EncodeUnicode(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function base64DecodeUnicode(b64) {
+  return decodeURIComponent(escape(atob(b64)));
 }
 
 /* ============================================================= */
@@ -98,7 +104,7 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [activeVisualizer, setActiveVisualizer] = useState("recursion");
   const [autoFixOpen, setAutoFixOpen] = useState(false);
-  const [selectedLine, setSelectedLine] = useState(null);
+  const [selectedLine] = useState(null);
   const [language, setLanguage] = useState("javascript");
   const [isRunning, setIsRunning] = useState(false);
   const [isExecuted, setIsExecuted] = useState(false);
@@ -107,12 +113,9 @@ function App() {
   const [codeContent, setCodeContent] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-
   const totalSteps = 15;
 
-  /* ------------------ LOAD FILE SYSTEM ------------------ */
+  /* ------------------ Load Files ------------------ */
   const stored = loadFromStorage();
   const initialFiles = stored?.files || DEFAULT_FILES;
   const initialActive = stored?.activeFile || Object.keys(initialFiles)[0];
@@ -120,27 +123,55 @@ function App() {
   const [files, setFiles] = useState(initialFiles);
   const [activeFile, setActiveFile] = useState(initialActive);
 
-  /* ------------------ Load Shared Code ------------------ */
+  /* ------------------ Splitter ------------------ */
+  const [editorPercent, setEditorPercent] = useState(75);
+  const dragStateRef = useRef({ dragging: false, startX: 0, startPercent: 75 });
+  const containerRef = useRef(null);
+
+  const startDrag = (e) => {
+    dragStateRef.current.dragging = true;
+    dragStateRef.current.startX = e.clientX;
+    dragStateRef.current.startPercent = editorPercent;
+    document.addEventListener("mousemove", onDrag);
+    document.addEventListener("mouseup", stopDrag);
+    e.preventDefault();
+  };
+
+  const onDrag = (e) => {
+    if (!dragStateRef.current.dragging || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const dx = e.clientX - dragStateRef.current.startX;
+    const deltaPercent = (dx / rect.width) * 100;
+    let next = dragStateRef.current.startPercent + deltaPercent;
+    if (next < 30) next = 30;
+    if (next > 90) next = 90;
+    setEditorPercent(next);
+  };
+
+  const stopDrag = () => {
+    dragStateRef.current.dragging = false;
+    document.removeEventListener("mousemove", onDrag);
+    document.removeEventListener("mouseup", stopDrag);
+  };
+
+  /* ------------------ Shared Code Loader ------------------ */
   const loadSharedCode = () => {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get("code");
-
     if (!encoded) return;
 
     try {
-      const decoded = JSON.parse(atob(decodeURIComponent(encoded)));
+      const decodedJson = base64DecodeUnicode(decodeURIComponent(encoded));
+      const decoded = JSON.parse(decodedJson);
 
       if (decoded.files) {
         setFiles(decoded.files);
-        setActiveFile(decoded.activeFile);
-        setTheme(decoded.theme);
-
-        setCodeContent(decoded.files[decoded.activeFile].content);
-
-        console.log("Loaded shared code.");
+        const af = decoded.activeFile || Object.keys(decoded.files)[0];
+        setActiveFile(af);
+        setCodeContent(decoded.files[af].content);
       }
     } catch (err) {
-      console.error("Invalid share link:", err);
+      console.error("Invalid link", err);
     }
   };
 
@@ -148,326 +179,199 @@ function App() {
     loadSharedCode();
   }, []);
 
-  /* ------------------ Generate Share Link ------------------ */
-  const generateShareLink = () => {
+  /* ------------------ Share Link ------------------ */
+  const generateShareLink = (filename) => {
+    const fileToShare = filename || activeFile;
     const payload = {
-      files,
-      activeFile,
-      theme,
+      files: { [fileToShare]: files[fileToShare] },
+      activeFile: fileToShare,
+      theme: theme,
+      createdAt: Date.now(),
     };
 
-    const encoded = encodeURIComponent(btoa(JSON.stringify(payload)));
-    const link = `${window.location.origin}?code=${encoded}`;
-
-    navigator.clipboard.writeText(link);
-    alert("Share Link Copied:\n\n" + link);
+    const encoded = encodeURIComponent(base64EncodeUnicode(JSON.stringify(payload)));
+    const link = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
+    navigator.clipboard.writeText(link).catch(() => alert(link));
+    alert("Share link copied:\n" + link);
   };
 
-  /* ------------------ LOAD ACTIVE FILE CONTENT ------------------ */
+  /* ------------------ File Content Load ------------------ */
   useEffect(() => {
-    if (activeFile && files[activeFile]) {
-      setCodeContent(files[activeFile].content);
-    }
+    if (activeFile && files[activeFile]) setCodeContent(files[activeFile].content);
   }, [activeFile, files]);
 
-  /* ------------------ 🔥 AUTO-DETECT LANGUAGE FROM EXT ------------------ */
+  /* ------------------ Auto Detect Language ------------------ */
   useEffect(() => {
-    if (!activeFile) return;
-
-    const ext = activeFile.split(".").pop().toLowerCase();
-
-    let detected = "javascript";
-    if (ext === "js") detected = "javascript";
-    else if (ext === "py") detected = "python";
-    else if (["cpp", "c++", "cc", "cxx", "c"].includes(ext)) detected = "cpp";
-    else if (ext === "java") detected = "java";
-
-    setLanguage(detected);
+    const ext = activeFile.split(".").pop();
+    setLanguage(
+      ext === "py"
+        ? "python"
+        : ["cpp", "c", "cc", "cxx"].includes(ext)
+        ? "cpp"
+        : ext === "java"
+        ? "java"
+        : "javascript"
+    );
   }, [activeFile]);
 
-  /* ------------------ PERSIST STORAGE ------------------ */
-  useEffect(() => {
-    saveToStorage({ files, activeFile, theme });
-  }, [files, activeFile, theme]);
-
-  /* ------------------ AUTO-SAVE ------------------ */
+  /* ------------------ Auto Save ------------------ */
   useEffect(() => {
     if (!activeFile) return;
-
     setFiles((prev) => ({
       ...prev,
-      [activeFile]: {
-        ...prev[activeFile],
-        content: codeContent,
-        updatedAt: Date.now(),
-      },
+      [activeFile]: { ...prev[activeFile], content: codeContent },
     }));
   }, [codeContent]);
 
-  /* ============================================================= */
-  /* ===================== FILE OPERATIONS ======================== */
-  /* ============================================================= */
-
-  /* ---------- STARTER TEMPLATES (Option A) ---------- */
+  /* ------------------ File Operations ------------------ */
   const STARTER_TEMPLATES = {
     js: `function main() {
   console.log("Hello JavaScript!");
 }
-
 main();`,
 
     py: `def main():
     print("Hello Python!")
-
 if __name__ == "__main__":
     main()`,
 
     cpp: `#include <bits/stdc++.h>
 using namespace std;
-
 int main() {
-    cout << "Hello C++!" << endl;
+    cout << "Hello C++!";
     return 0;
 }`,
 
     java: `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello Java!");
-    }
+  public static void main(String[] args) {
+    System.out.println("Hello Java!");
+  }
 }`,
   };
 
   const createFile = (name) => {
     if (!name.trim()) return;
-
-    const filename = name.trim();
-    if (files[filename]) return alert("File already exists!");
-
-    const now = Date.now();
-    const ext = filename.split(".").pop().toLowerCase();
-
-    let starter = STARTER_TEMPLATES.js;
-    if (ext === "py") starter = STARTER_TEMPLATES.py;
-    else if (["cpp", "c++", "cc", "cxx", "c"].includes(ext))
-      starter = STARTER_TEMPLATES.cpp;
-    else if (ext === "java") starter = STARTER_TEMPLATES.java;
+    const ext = name.split(".").pop();
+    const starter =
+      ext === "py"
+        ? STARTER_TEMPLATES.py
+        : ["cpp", "c", "cc", "cxx"].includes(ext)
+        ? STARTER_TEMPLATES.cpp
+        : ext === "java"
+        ? STARTER_TEMPLATES.java
+        : STARTER_TEMPLATES.js;
 
     setFiles((prev) => ({
       ...prev,
-      [filename]: { content: starter, createdAt: now, updatedAt: now },
+      [name]: { content: starter, createdAt: Date.now(), updatedAt: Date.now() },
     }));
 
-    setActiveFile(filename);
+    setActiveFile(name);
     setCodeContent(starter);
   };
 
-  const renameFile = (oldName, newName) => {
-    if (!oldName || !newName.trim()) return;
-    if (files[newName]) return alert("File already exists!");
-
-    setFiles((prev) => {
-      const next = { ...prev };
-      next[newName] = { ...prev[oldName], updatedAt: Date.now() };
-      delete next[oldName];
-      return next;
-    });
-
-    if (activeFile === oldName) {
-      setActiveFile(newName);
-      setCodeContent(files[oldName].content);
-    }
-  };
-
   const deleteFile = (name) => {
-    if (!name || !files[name]) return;
-    if (Object.keys(files).length === 1)
-      return alert("At least one file required!");
+    if (Object.keys(files).length === 1) return alert("At least one file required!");
 
-    setFiles((prev) => {
-      const next = { ...prev };
-      delete next[name];
+    const updated = { ...files };
+    delete updated[name];
 
-      const first = Object.keys(next)[0];
-      setActiveFile(first);
-      setCodeContent(next[first].content);
-
-      return next;
-    });
+    const first = Object.keys(updated)[0];
+    setFiles(updated);
+    setActiveFile(first);
+    setCodeContent(updated[first].content);
   };
 
   const duplicateFile = (name) => {
-    const base = name.replace(/\.\w+$/, "");
-    const ext = name.match(/\.\w+$/)?.[0] || "";
-    let i = 1;
+    const ext = name.match(/\.\w+$/)?.[0];
+    const base = name.replace(ext, "");
     let newName = `${base}-copy${ext}`;
-
-    while (files[newName]) {
-      newName = `${base}-copy-${i}${ext}`;
-      i++;
-    }
-
-    const now = Date.now();
+    let i = 1;
+    while (files[newName]) newName = `${base}-copy-${i++}${ext}`;
 
     setFiles((prev) => ({
       ...prev,
-      [newName]: {
-        ...prev[name],
-        createdAt: now,
-        updatedAt: now,
-      },
+      [newName]: { ...prev[name], updatedAt: Date.now() },
     }));
 
     setActiveFile(newName);
     setCodeContent(files[name].content);
   };
 
-  /* ---------------- SAVE WITH FILE PICKER ---------------- */
-  const saveFile = async (name) => {
-    try {
-      const content = files[name]?.content || "";
-
-      const options = {
-        suggestedName: name,
-        types: [
-          {
-            description: "Code Files",
-            accept: {
-              "text/plain": [
-                ".js",
-                ".py",
-                ".cpp",
-                ".java",
-                ".txt",
-                ".html",
-                ".css",
-              ],
-            },
-          },
-        ],
-      };
-
-      const handle = await window.showSaveFilePicker(options);
-      const writable = await handle.createWritable();
-
-      await writable.write(content);
-      await writable.close();
-
-      alert("File saved successfully!");
-    } catch (err) {
-      console.warn("Save cancelled or failed:", err);
-    }
-  };
-
-  /* ---------------- PDF DOWNLOAD ---------------- */
-  const downloadPDF = (name) => {
-    try {
-      const content = files[name]?.content || "";
-      const pdf = new jsPDF({ unit: "pt", format: "a4" });
-
-      const lines = pdf.splitTextToSize(content, 550);
-      pdf.text(lines, 30, 40);
-
-      pdf.save(name.replace(/\.\w+$/, "") + ".pdf");
-    } catch (err) {
-      alert("Failed to download PDF");
-      console.error(err);
-    }
-  };
-
-  /* ---------------- DOWNLOAD PLAIN FILE ---------------- */
-  const downloadFile = (name) => {
-    const blob = new Blob([files[name].content], { type: "text/plain" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-  };
-
-  const uploadFile = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const now = Date.now();
-      const content = e.target.result;
-
-      setFiles((prev) => ({
-        ...prev,
-        [file.name]: { content, createdAt: now, updatedAt: now },
-      }));
-
-      setActiveFile(file.name);
-      setCodeContent(content);
-    };
-
-    reader.readAsText(file);
-  };
-
-  /* ============================================================= */
-  /* ======================= OLD FUNCTIONALITY ==================== */
-  /* ============================================================= */
-
-  const handleRun = () => {
-    setIsRunning(true);
-    setIsExecuted(false);
-    setCurrentStep(0);
-
-    setTimeout(() => {
-      setIsRunning(false);
-      setIsExecuted(true);
-    }, 1000);
-  };
-
-  const handleDebug = () => {
-    alert("Debug mode started!");
-    setIsRunning(true);
-    setIsExecuted(false);
-
-    setTimeout(() => {
-      setIsRunning(false);
-      setIsExecuted(true);
-    }, 1500);
-  };
-
+  /* ------------------ RENDER MAIN CONTENT ------------------ */
   const renderMainContent = () => {
-    switch (activeView) {
-      case "dashboard":
-        return <Dashboard />;
+    if (activeView === "dashboard") return <Dashboard />;
+    if (activeView === "projects") return <Projects />;
+    if (activeView === "tests") return <Tests isRunning={isRunning} onRun={() => {}} />;
+    if (activeView === "settings") return <Settings />;
 
-      case "projects":
-        return <Projects />;
+    /* -------- DEBUG VIEW (FIXED LAYOUT) -------- */
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
 
-      case "tests":
-        return <Tests onRun={handleRun} isRunning={isRunning} />;
-
-      case "settings":
-        return <Settings />;
-
-      case "debug":
-      default:
-        return (
-          <>
-            <div className="flex flex-1 overflow-hidden">
-              <div className="flex-1 border-r border-border">
-                <CodeEditor
-                  codeContent={codeContent}
-                  onCodeChange={setCodeContent}
-                />
-              </div>
-
-              <div className="w-2/5">
-                <VisualizerPane
-                  activeTab={activeVisualizer}
-                  onTabChange={setActiveVisualizer}
-                />
-              </div>
+        {/* ==== TOP AREA (420px) ==== */}
+        <div
+          ref={containerRef}
+          className="flex overflow-hidden"
+          style={{ height: "420px", minHeight: "420px", maxHeight: "420px" }}
+        >
+          {/* LEFT Editor */}
+          <div
+            className="min-w-0 flex flex-col border-r border-border"
+            style={{
+              width: `${editorPercent}%`,
+              height: "420px",
+              overflow: "hidden",
+            }}
+          >
+            <div className="px-4 py-2 border-b bg-card text-sm font-semibold">
+              Code Editor
             </div>
 
-            <TimelineSlider currentStep={currentStep} totalSteps={totalSteps} />
+            <div className="flex-1 overflow-auto min-h-0">
+              <CodeEditor codeContent={codeContent} onCodeChange={setCodeContent} language={language} />
+            </div>
+          </div>
+
+          {/* DIVIDER */}
+          <div
+            onMouseDown={startDrag}
+            className="w-1 cursor-col-resize bg-muted/40 hover:bg-muted"
+            style={{ zIndex: 10 }}
+          />
+
+          {/* RIGHT Visualizer */}
+          <div
+            className="min-w-[300px] flex flex-col"
+            style={{
+              width: `${100 - editorPercent}%`,
+              height: "420px",
+              overflow: "hidden",
+            }}
+          >
+            <VisualizerPane activeTab={activeVisualizer} onTabChange={setActiveVisualizer} />
+          </div>
+        </div>
+
+        {/* TIMELINE */}
+        <div className="border-t border-border">
+          <TimelineSlider currentStep={currentStep} totalSteps={totalSteps} />
+        </div>
+
+        {/* Bottom Panel 260px */}
+        <div
+          className="bg-surface border-t border-border"
+          style={{ height: "260px", minHeight: "260px", maxHeight: "260px" }}
+        >
+          <div className="h-full overflow-auto">
             <BottomPanels selectedLine={selectedLine} />
-          </>
-        );
-    }
+          </div>
+        </div>
+      </div>
+    );
   };
 
+  /* ------------------ RETURN ------------------ */
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
       <Navbar
@@ -478,51 +382,20 @@ int main() {
           setCodeContent(files[f].content);
         }}
         onNewFile={createFile}
-        onRenameFile={renameFile}
         onDeleteFile={deleteFile}
         onDuplicateFile={duplicateFile}
-        onSaveFile={saveFile}
-        onDownloadFile={downloadFile}
-        onDownloadPDF={downloadPDF}
-        onUploadFile={uploadFile}
-        onShareLink={generateShareLink}
-        onRun={handleRun}
-        onDebugClick={handleDebug}
-        isRunning={isRunning}
+        onShareLink={() => generateShareLink(activeFile)}
         language={language}
-        onLanguageChange={setLanguage}
         theme={theme}
-        onThemeToggle={() =>
-          setTheme((t) => (t === "dark" ? "light" : "dark"))
-        }
-        onAutoFixClick={() => setAutoFixOpen(true)}
-        onProfileClick={() => setProfileOpen(true)}
-        isLoggedIn={isLoggedIn}
-        currentUser={currentUser}
+        onThemeToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
-
-        <main className="flex-1">{renderMainContent()}</main>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <main className="flex-1 min-h-0">{renderMainContent()}</main>
       </div>
 
-      <AutoFixModal
-        open={autoFixOpen}
-        onOpenChange={setAutoFixOpen}
-        onApplyFix={(code) => {
-          setFiles((prev) => ({
-            ...prev,
-            [activeFile]: { ...prev[activeFile], content: code },
-          }));
-          setCodeContent(code);
-          setAutoFixOpen(false);
-        }}
-      />
-
+      <AutoFixModal open={autoFixOpen} onOpenChange={setAutoFixOpen} />
       <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
   );
