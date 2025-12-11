@@ -44,7 +44,9 @@ export function Sidebar({ collapsed, onToggle, activeView, onViewChange }) {
                     onClick={() => onViewChange(item.id)}
                     className={`w-full mb-1 ${collapsed ? 'justify-center px-0' : 'justify-start'} ${
                       isActive
-                        ? 'bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary'
+                        ? item.id === 'debug'
+                          ? 'bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 hover:text-cyan-300'
+                          : 'bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary'
                         : 'bg-transparent text-foreground hover:bg-muted hover:text-foreground'
                     }`}
                   >

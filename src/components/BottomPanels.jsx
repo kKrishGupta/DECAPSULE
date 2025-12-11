@@ -29,25 +29,25 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
           <TabsList className="bg-muted">
             <TabsTrigger
               value="watch"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
             >
               Watch
             </TabsTrigger>
             <TabsTrigger
               value="stack"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
             >
               Call Stack
             </TabsTrigger>
             <TabsTrigger
               value="logs"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
             >
               Logs
             </TabsTrigger>
             <TabsTrigger
               value="explanation"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+              className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white text-foreground"
             >
               Explanation
             </TabsTrigger>

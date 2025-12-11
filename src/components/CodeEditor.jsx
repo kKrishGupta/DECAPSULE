@@ -104,15 +104,28 @@ export function CodeEditor({
   codeContent,
   onCodeChange,
 }) {
-  const code = codeContent || codeExamples[language];
-  const lines = code.split('\n');
-  const executingLine = isExecuted ? Math.min(Math.floor(currentStep / 2) + 1, lines.length) : null;
+  // 🔥 ALWAYS SAFE STRING (CRASH FIX)
+  const safeCode =
+    typeof codeContent === "string"
+      ? codeContent
+      : codeExamples[language] || "";
+
+  const lines = safeCode.split("\n");
+
+  const executingLine =
+    isExecuted
+      ? Math.min(Math.floor(currentStep / 2) + 1, lines.length)
+      : null;
 
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="px-6 py-3 border-b border-border flex items-center justify-between">
         <h2 className="text-sm font-medium text-foreground">Code Editor</h2>
-        {!isExecuted && <span className="text-xs text-muted-foreground">Click Run to start debugging</span>}
+        {!isExecuted && (
+          <span className="text-xs text-muted-foreground">
+            Click Run to start debugging
+          </span>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
@@ -127,17 +140,19 @@ export function CodeEditor({
                 key={index}
                 onClick={() => onLineClick(lineNumber)}
                 className={`flex hover:bg-muted/50 cursor-pointer transition-colors ${
-                  isExecuting ? 'bg-primary/10 animate-pulse-glow' : ''
-                } ${isSelected ? 'bg-secondary/10' : ''}`}
+                  isExecuting ? "bg-primary/10 animate-pulse-glow" : ""
+                } ${isSelected ? "bg-secondary/10" : ""}`}
               >
                 <div className="w-12 flex-shrink-0 text-right pr-4 py-2 text-muted-foreground select-none border-r border-border">
                   {lineNumber}
                 </div>
+
                 <div className="flex-1 px-4 py-2">
                   <pre className="text-foreground whitespace-pre-wrap break-words">
-                    <code>{line || ' '}</code>
+                    <code>{line || " "}</code>
                   </pre>
                 </div>
+
                 {isExecuting && <div className="w-1 bg-primary animate-pulse-glow" />}
               </div>
             );
