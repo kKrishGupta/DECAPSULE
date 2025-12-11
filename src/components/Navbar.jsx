@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { Play, Zap, Moon, Sun, FileCode, User, Loader2, ChevronDown } from 'lucide-react';
+import { Play, Zap, Moon, Sun, FileCode, User, Loader2, ChevronDown, Bug } from 'lucide-react';
 
 const languageConfig = {
   javascript: { label: 'JavaScript', extension: '.js', icon: '🟨' },
@@ -16,7 +16,7 @@ const languageConfig = {
   java: { label: 'Java', extension: '.java', icon: '☕' },
 };
 
-export function Navbar({ onAutoFixClick, onRun, isRunning, language, onLanguageChange, theme, onThemeToggle, onProfileClick }) {
+export function Navbar({ onAutoFixClick, onRun, onDebugClick, isRunning, language, onLanguageChange, theme, onThemeToggle, onProfileClick, isLoggedIn, currentUser }) {
   const currentLang = languageConfig[language];
 
   const handleLogout = () => {
@@ -89,6 +89,11 @@ export function Navbar({ onAutoFixClick, onRun, isRunning, language, onLanguageC
           )}
         </Button>
 
+        <Button onClick={onDebugClick} className="bg-amber-600 text-white hover:bg-amber-700">
+          <Bug className="w-4 h-4 mr-2" strokeWidth={2} />
+          Debug
+        </Button>
+
         <Button onClick={onAutoFixClick} className="bg-tertiary text-tertiary-foreground hover:bg-tertiary/90">
           <Zap className="w-4 h-4 mr-2" strokeWidth={2} />
           Auto-Fix
@@ -105,9 +110,22 @@ export function Navbar({ onAutoFixClick, onRun, isRunning, language, onLanguageC
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-popover text-popover-foreground border-border">
-            <DropdownMenuItem onClick={onProfileClick} className="text-popover-foreground hover:bg-muted hover:text-foreground cursor-pointer">Profile</DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem onClick={handleLogout} className="text-popover-foreground hover:bg-muted hover:text-foreground cursor-pointer">Logout</DropdownMenuItem>
+            {isLoggedIn ? (
+              <>
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-sm font-semibold text-popover-foreground">{currentUser?.name}</p>
+                  <p className="text-xs text-muted-foreground">{currentUser?.email}</p>
+                </div>
+                <DropdownMenuItem onClick={onProfileClick} className="text-popover-foreground hover:bg-muted hover:text-foreground cursor-pointer">Profile</DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuItem onClick={onProfileClick} className="text-popover-foreground hover:bg-muted hover:text-foreground cursor-pointer">Logout</DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem onClick={onProfileClick} className="text-popover-foreground hover:bg-muted hover:text-foreground cursor-pointer">Login</DropdownMenuItem>
+                <DropdownMenuItem onClick={onProfileClick} className="text-popover-foreground hover:bg-muted hover:text-foreground cursor-pointer">Sign Up</DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

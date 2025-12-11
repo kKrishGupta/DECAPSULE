@@ -30,8 +30,26 @@ function App() {
   const [theme, setTheme] = useState("dark");
   const [codeContent, setCodeContent] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
+  
+  // Auth states
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const totalSteps = 15;
+
+  // Load user from localStorage on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+      } catch (error) {
+        console.error("Error loading user:", error);
+      }
+    }
+  }, []);
 
   const handleRun = () => {
     setIsRunning(true);
@@ -42,6 +60,18 @@ function App() {
       setIsRunning(false);
       setIsExecuted(true);
     }, 1000);
+  };
+
+  const handleDebug = () => {
+    alert("Debug mode started! 🐛");
+    setIsRunning(true);
+    setIsExecuted(false);
+    setCurrentStep(0);
+
+    setTimeout(() => {
+      setIsRunning(false);
+      setIsExecuted(true);
+    }, 1500);
   };
 
   const handleToggleSidebar = () => {
@@ -70,6 +100,68 @@ function App() {
     if (theme === "dark") document.documentElement.classList.add("dark");
     else document.documentElement.classList.add("light");
   }, []);
+
+  const handleLogin = (email, password) => {
+    // Basic validation
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return false;
+    }
+    if (!email.includes("@")) {
+      alert("Please enter a valid email");
+      return false;
+    }
+    // Extract name from email for demo purposes
+    const name = email.split("@")[0];
+    const userData = {
+      email,
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      loginDate: new Date().toLocaleDateString(),
+    };
+    localStorage.setItem("user", JSON.stringify(userData));
+    setCurrentUser(userData);
+    setIsLoggedIn(true);
+    return true;
+  };
+
+  const handleSignup = (fullName, email, password, confirmPassword) => {
+    // Validation
+    if (!fullName || !email || !password || !confirmPassword) {
+      alert("Please fill in all fields");
+      return false;
+    }
+    if (!email.includes("@")) {
+      alert("Please enter a valid email");
+      return false;
+    }
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters");
+      return false;
+    }
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return false;
+    }
+    const userData = {
+      email,
+      name: fullName,
+      joinDate: new Date().toLocaleDateString(),
+    };
+    localStorage.setItem("user", JSON.stringify(userData));
+    setCurrentUser(userData);
+    setIsLoggedIn(true);
+    return true;
+  };
+
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to logout?")) {
+      localStorage.removeItem("user");
+      setCurrentUser(null);
+      setIsLoggedIn(false);
+      setProfileOpen(false);
+      alert("Logged out successfully!");
+    }
+  };
 
   const renderMainContent = () => {
     switch (activeView) {
@@ -135,12 +227,15 @@ function App() {
       <Navbar
         onAutoFixClick={() => setAutoFixOpen(true)}
         onRun={handleRun}
+        onDebugClick={handleDebug}
         isRunning={isRunning}
         language={language}
         onLanguageChange={setLanguage}
         theme={theme}
         onThemeToggle={handleThemeToggle}
         onProfileClick={() => setProfileOpen(true)}
+        isLoggedIn={isLoggedIn}
+        currentUser={currentUser}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -163,7 +258,15 @@ function App() {
         onApplyFix={handleApplyFix}
       />
 
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+      <ProfileModal
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        isLoggedIn={isLoggedIn}
+        currentUser={currentUser}
+        onLogin={handleLogin}
+        onSignup={handleSignup}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }
