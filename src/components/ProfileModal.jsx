@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export function ProfileModal({ open, onOpenChange, isLoggedIn, currentUser, onLogin, onSignup, onLogout }) {
+export function ProfileModal({ open, onOpenChange, isLoggedIn = false, currentUser = null, onLogin = () => true, onSignup = () => true, onLogout = () => {} }) {
   const [activeTab, setActiveTab] = React.useState("login");
   const [loginData, setLoginData] = React.useState({ email: "", password: "" });
   const [signupData, setSignupData] = React.useState({ fullName: "", email: "", password: "", confirmPassword: "" });

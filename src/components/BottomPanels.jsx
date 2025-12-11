@@ -22,6 +22,16 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
     { time: '0.004s', level: 'info', message: 'Result: 55' },
   ];
 
+  const output = [
+    '> fibonacci(10)',
+    'Starting fibonacci(10)',
+    'Computing fibonacci(9)',
+    'Computing fibonacci(8)',
+    '✓ Result: 55',
+    '',
+    'Execution completed in 4ms',
+  ];
+
   return (
     <div className="h-40 bg-card">
       <Tabs defaultValue="watch" className="h-full flex flex-col">
@@ -44,6 +54,12 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
             >
               Logs
+            </TabsTrigger>
+            <TabsTrigger
+              value="output"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
+            >
+              Output
             </TabsTrigger>
             <TabsTrigger
               value="explanation"
@@ -158,6 +174,26 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
                   </p>
                 </div>
               </div>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="output" className="h-full m-0">
+            <ScrollArea className="h-full p-6">
+              {!isExecuted ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">Run code to view output</p>
+                </div>
+              ) : (
+                <div className="bg-black rounded-md p-4 border border-border">
+                  <div className="font-mono text-sm leading-relaxed">
+                    {output.map((line, i) => (
+                      <div key={i} className={line.startsWith('>') ? 'text-cyan-400 font-bold' : line.startsWith('✓') ? 'text-green-400' : line === '' ? 'h-2' : 'text-green-300'}>
+                        {line || '\u00a0'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </ScrollArea>
           </TabsContent>
         </div>

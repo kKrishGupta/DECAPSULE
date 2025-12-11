@@ -41,29 +41,11 @@ console.log('Fibonacci(10):', result);`,
 result = fibonacci(10)
 print(f'Fibonacci(10): {result}')`,
 
-  cpp: `#include <iostream>
-#include <unordered_map>
+  cpp: `#include <bits/stdc++.h>
 using namespace std;
 
-int fibonacci(int n, unordered_map<int, int>& memo) {
-    // Base cases
-    if (n <= 1) return n;
-    
-    // Check if already computed
-    if (memo.find(n) != memo.end()) {
-        return memo[n];
-    }
-    
-    // Recursive computation with memoization
-    memo[n] = fibonacci(n - 1, memo) + fibonacci(n - 2, memo);
-    
-    return memo[n];
-}
-
 int main() {
-    unordered_map<int, int> memo;
-    int result = fibonacci(10, memo);
-    cout << "Fibonacci(10): " << result << endl;
+    cout << "Hello C++!";
     return 0;
 }`,
 
@@ -104,7 +86,9 @@ export function CodeEditor({
   codeContent,
   onCodeChange,
 }) {
-  // 🔥 ALWAYS SAFE STRING (CRASH FIX)
+  const editorRef = React.useRef(null);
+
+  // 🛡 SAFE STRING ALWAYS
   const safeCode =
     typeof codeContent === "string"
       ? codeContent
@@ -112,10 +96,22 @@ export function CodeEditor({
 
   const lines = safeCode.split("\n");
 
+  // RUNNING LINE HIGHLIGHT
   const executingLine =
     isExecuted
       ? Math.min(Math.floor(currentStep / 2) + 1, lines.length)
       : null;
+
+  // ⭐ FIX: RESET EDITOR ON FILE TYPE / CONTENT CHANGE
+  React.useEffect(() => {
+    if (editorRef.current) {
+      // Clear previous content first
+      editorRef.current.textContent = "";
+
+      // Insert updated template or code
+      editorRef.current.textContent = safeCode;
+    }
+  }, [safeCode, language]); // 🔥 IMPORTANT FIX
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -129,34 +125,58 @@ export function CodeEditor({
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="font-mono text-sm">
-          {lines.map((line, index) => {
-            const lineNumber = index + 1;
-            const isExecuting = lineNumber === executingLine;
-            const isSelected = lineNumber === selectedLine;
+        <div className="relative w-full h-full font-mono text-sm">
 
-            return (
-              <div
-                key={index}
-                onClick={() => onLineClick(lineNumber)}
-                className={`flex hover:bg-muted/50 cursor-pointer transition-colors ${
-                  isExecuting ? "bg-primary/10 animate-pulse-glow" : ""
-                } ${isSelected ? "bg-secondary/10" : ""}`}
-              >
-                <div className="w-12 flex-shrink-0 text-right pr-4 py-2 text-muted-foreground select-none border-r border-border">
-                  {lineNumber}
-                </div>
-
-                <div className="flex-1 px-4 py-2">
-                  <pre className="text-foreground whitespace-pre-wrap break-words">
-                    <code>{line || " "}</code>
-                  </pre>
-                </div>
-
-                {isExecuting && <div className="w-1 bg-primary animate-pulse-glow" />}
+          {/* LEFT LINE NUMBERS */}
+          <div
+            className="absolute top-0 left-0 w-12 bg-background border-r border-border text-right pr-2 pt-2 text-muted-foreground select-none"
+          >
+            {lines.map((_, i) => (
+              <div key={i} className="leading-6">
+                {i + 1}
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* EDITOR */}
+          <div
+            ref={editorRef}
+            contentEditable={true}
+            suppressContentEditableWarning={true}
+            onInput={(e) => onCodeChange(e.currentTarget.innerText)}
+            onClick={(e) => {
+              const text = editorRef.current.innerText;
+              const pos = window.getSelection().anchorOffset;
+              const line = text.substring(0, pos).split("\n").length;
+              onLineClick?.(line);
+            }}
+            className="
+              pl-14
+              pr-4
+              py-2
+              whitespace-pre-wrap
+              break-words
+              outline-none
+              min-h-full
+              text-foreground
+              leading-6
+              cursor-text
+            "
+            spellCheck="false"
+          />
+
+          {/* EXECUTING LINE HIGHLIGHT */}
+          {executingLine && (
+            <div
+              className="absolute left-0 right-0 bg-primary/10 animate-pulse-glow"
+              style={{
+                top: (executingLine - 1) * 24,
+                height: 24,
+                zIndex: -1,
+              }}
+            />
+          )}
+
         </div>
       </ScrollArea>
     </div>

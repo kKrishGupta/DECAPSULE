@@ -64,6 +64,7 @@ export function Navbar({
   theme,
   onThemeToggle,
   onProfileClick,
+  onLogout,
   isLoggedIn,
   currentUser,
 }) {
@@ -84,7 +85,7 @@ export function Navbar({
     const name = newFileName.trim();
     if (!name) return handleCloseCreate();
 
-    onNewFile(name);
+    onNewFile?.(name);
     handleCloseCreate();
   };
 
@@ -113,7 +114,7 @@ export function Navbar({
     const newName = renameValue.trim();
     if (!newName) return handleCancelRename();
 
-    onRenameFile(activeFile, newName);
+    onRenameFile?.(activeFile, newName);
     handleCancelRename();
   };
 
@@ -126,7 +127,7 @@ export function Navbar({
   /* ---------------- Upload File ---------------- */
   const handleUpload = (e) => {
     const file = e.target.files?.[0];
-    if (file) onUploadFile(file);
+    if (file) onUploadFile?.(file);
     e.target.value = null;
   };
 
@@ -161,7 +162,7 @@ export function Navbar({
               {Object.keys(files).map((file) => (
                 <div
                   key={file}
-                  onClick={() => onFileSelect(file)}
+                  onClick={() => onFileSelect?.(file)}
                   className={`flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-muted/40 ${
                     activeFile === file ? "bg-muted" : ""
                   }`}
@@ -249,7 +250,7 @@ export function Navbar({
             {/* DUPLICATE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
-              onClick={() => onDuplicateFile(activeFile)}
+              onClick={() => onDuplicateFile?.(activeFile)}
               className="px-4 py-2 cursor-pointer"
             >
               📑 Duplicate
@@ -258,7 +259,7 @@ export function Navbar({
             {/* DELETE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
-              onClick={() => onDeleteFile(activeFile)}
+              onClick={() => onDeleteFile?.(activeFile)}
               className="px-4 py-2 cursor-pointer"
             >
               🗑 Delete
@@ -269,7 +270,7 @@ export function Navbar({
             {/* SAVE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
-              onClick={() => onSaveFile(activeFile)}
+              onClick={() => onSaveFile?.()}
               className="px-4 py-2 cursor-pointer"
             >
               💾 Save
@@ -278,7 +279,7 @@ export function Navbar({
             {/* DOWNLOAD */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
-              onClick={() => onDownloadFile(activeFile)}
+              onClick={() => onDownloadFile?.(activeFile)}
               className="px-4 py-2 cursor-pointer"
             >
               ⬇️ Download File
@@ -287,7 +288,7 @@ export function Navbar({
             {/* PDF */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
-              onClick={() => onDownloadPDF(activeFile)}
+              onClick={() => onDownloadPDF?.(activeFile)}
               className="px-4 py-2 cursor-pointer"
             >
               📄 Download PDF
@@ -296,7 +297,7 @@ export function Navbar({
             {/* SHARE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
-              onClick={() => onShareLink(activeFile)}
+              onClick={() => onShareLink?.(activeFile)}
               className="px-4 py-2 cursor-pointer"
             >
               🔗 Share Link
@@ -324,7 +325,7 @@ export function Navbar({
 
           <DropdownMenuContent>
             {Object.entries(languageConfig).map(([key, config]) => (
-              <DropdownMenuItem key={key} onClick={() => onLanguageChange(key)}>
+              <DropdownMenuItem key={key} onClick={() => onLanguageChange?.(key)}>
                 <span className="mr-2">{config.icon}</span>
                 {config.label}
               </DropdownMenuItem>
@@ -388,7 +389,7 @@ export function Navbar({
                   Profile
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onProfileClick}>
+                <DropdownMenuItem onClick={onLogout}>
                   Logout
                 </DropdownMenuItem>
               </>

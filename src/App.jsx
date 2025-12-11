@@ -1,4 +1,4 @@
-// App.jsx  (complete file)
+// App.jsx  (complete updated file)
 import React, { useState, useEffect, useRef } from "react";
 
 // MAIN COMPONENTS
@@ -29,7 +29,6 @@ const DEFAULT_FILES = {
   memo[n] = fibonacci(n - 1, memo) + fibonacci(n - 2, memo);
   return memo[n];
 }
-
 console.log(fibonacci(10));`,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -44,7 +43,6 @@ console.log(fibonacci(10));`,
   const right = arr.filter((x) => x > pivot);
   return [...quicksort(left), ...mid, ...quicksort(right)];
 }
-
 console.log(quicksort([5, 3, 8, 1, 2]));`,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -104,7 +102,7 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [activeVisualizer, setActiveVisualizer] = useState("recursion");
   const [autoFixOpen, setAutoFixOpen] = useState(false);
-  const [selectedLine] = useState(null);
+  const [selectedLine, setSelectedLine] = useState(null);
   const [language, setLanguage] = useState("javascript");
   const [isRunning, setIsRunning] = useState(false);
   const [isExecuted, setIsExecuted] = useState(false);
@@ -112,6 +110,9 @@ function App() {
   const [theme, setTheme] = useState("dark");
   const [codeContent, setCodeContent] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const totalSteps = 15;
 
@@ -127,6 +128,34 @@ function App() {
   const [editorPercent, setEditorPercent] = useState(75);
   const dragStateRef = useRef({ dragging: false, startX: 0, startPercent: 75 });
   const containerRef = useRef(null);
+
+  /* ------------------ Bottom Panel Height ------------------ */
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(350);
+  const dragBottomRef = useRef({ dragging: false, startY: 0, startHeight: 350 });
+
+  const startBottomDrag = (e) => {
+    dragBottomRef.current.dragging = true;
+    dragBottomRef.current.startY = e.clientY;
+    dragBottomRef.current.startHeight = bottomPanelHeight;
+    document.addEventListener("mousemove", onBottomDrag);
+    document.addEventListener("mouseup", stopBottomDrag);
+    e.preventDefault();
+  };
+
+  const onBottomDrag = (e) => {
+    if (!dragBottomRef.current.dragging) return;
+    const dy = dragBottomRef.current.startY - e.clientY;
+    let next = dragBottomRef.current.startHeight + dy;
+    if (next < 150) next = 150;
+    if (next > 600) next = 600;
+    setBottomPanelHeight(next);
+  };
+
+  const stopBottomDrag = () => {
+    dragBottomRef.current.dragging = false;
+    document.removeEventListener("mousemove", onBottomDrag);
+    document.removeEventListener("mouseup", stopBottomDrag);
+  };
 
   const startDrag = (e) => {
     dragStateRef.current.dragging = true;
@@ -155,7 +184,7 @@ function App() {
   };
 
   /* ------------------ Shared Code Loader ------------------ */
-  const loadSharedCode = () => {
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get("code");
     if (!encoded) return;
@@ -170,32 +199,25 @@ function App() {
         setActiveFile(af);
         setCodeContent(decoded.files[af].content);
       }
-    } catch (err) {
-      console.error("Invalid link", err);
-    }
-  };
-
-  useEffect(() => {
-    loadSharedCode();
+    } catch {}
   }, []);
 
-  /* ------------------ Share Link ------------------ */
+  /* ------------------ SHARE LINK ------------------ */
   const generateShareLink = (filename) => {
     const fileToShare = filename || activeFile;
     const payload = {
       files: { [fileToShare]: files[fileToShare] },
       activeFile: fileToShare,
-      theme: theme,
+      theme,
       createdAt: Date.now(),
     };
-
     const encoded = encodeURIComponent(base64EncodeUnicode(JSON.stringify(payload)));
     const link = `${window.location.origin}${window.location.pathname}?code=${encoded}`;
     navigator.clipboard.writeText(link).catch(() => alert(link));
     alert("Share link copied:\n" + link);
   };
 
-  /* ------------------ File Content Load ------------------ */
+  /* ------------------ Load Active File Content ------------------ */
   useEffect(() => {
     if (activeFile && files[activeFile]) setCodeContent(files[activeFile].content);
   }, [activeFile, files]);
@@ -206,7 +228,7 @@ function App() {
     setLanguage(
       ext === "py"
         ? "python"
-        : ["cpp", "c", "cc", "cxx"].includes(ext)
+        : ["cpp", "c", "cc", "cxx","c++"].includes(ext)
         ? "cpp"
         : ext === "java"
         ? "java"
@@ -214,7 +236,7 @@ function App() {
     );
   }, [activeFile]);
 
-  /* ------------------ Auto Save ------------------ */
+  /* ------------------ Auto Save (Live Update) ------------------ */
   useEffect(() => {
     if (!activeFile) return;
     setFiles((prev) => ({
@@ -223,11 +245,9 @@ function App() {
     }));
   }, [codeContent]);
 
-  /* ------------------ File Operations ------------------ */
+  /* ------------------ FILE OPERATIONS ------------------ */
   const STARTER_TEMPLATES = {
-    js: `function main() {
-  console.log("Hello JavaScript!");
-}
+    js: `function main() { console.log("Hello JavaScript!"); }
 main();`,
 
     py: `def main():
@@ -271,7 +291,8 @@ int main() {
   };
 
   const deleteFile = (name) => {
-    if (Object.keys(files).length === 1) return alert("At least one file required!");
+    if (Object.keys(files).length === 1)
+      return alert("At least one file required!");
 
     const updated = { ...files };
     delete updated[name];
@@ -298,22 +319,130 @@ int main() {
     setCodeContent(files[name].content);
   };
 
-  /* ------------------ RENDER MAIN CONTENT ------------------ */
+  /* ------------------ SAVE FILE (FIXED FUNCTION) ------------------ */
+  const saveFile = () => {
+    setFiles((prev) => ({
+      ...prev,
+      [activeFile]: {
+        ...prev[activeFile],
+        content: codeContent,
+        updatedAt: Date.now(),
+      },
+    }));
+
+    saveToStorage({
+      files,
+      activeFile,
+    });
+
+    alert("File saved successfully!");
+  };
+
+  /* ------------------ DOWNLOAD FILE AS TEXT ------------------ */
+  const downloadFile = () => {
+    if (!activeFile || !files[activeFile]) {
+      alert("No file selected");
+      return;
+    }
+
+    const content = files[activeFile].content;
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = activeFile;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  /* ------------------ DOWNLOAD FILE AS PDF ------------------ */
+  const downloadPDF = () => {
+    if (!activeFile || !files[activeFile]) {
+      alert("No file selected");
+      return;
+    }
+
+    const content = files[activeFile].content;
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "pt",
+      format: "a4",
+    });
+
+    const lineHeight = 14;
+    const leftMargin = 20;
+    const topMargin = 20;
+    const maxWidth = 550;
+
+    const lines = pdf.splitTextToSize(content, maxWidth);
+
+    pdf.setFont("Courier", "normal");
+    pdf.setFontSize(10);
+
+    let y = topMargin;
+    lines.forEach((line) => {
+      if (y > 800) {
+        pdf.addPage();
+        y = topMargin;
+      }
+      pdf.text(line, leftMargin, y);
+      y += lineHeight;
+    });
+
+    pdf.save(activeFile.replace(/\.\w+$/, "") + ".pdf");
+  };
+
+  /* ------------------ UPLOAD FILE ------------------ */
+  const uploadFile = async (file) => {
+    try {
+      const text = await file.text(); // read file content
+      const name = file.name;
+
+      // Add file to system
+      setFiles((prev) => ({
+        ...prev,
+        [name]: {
+          content: text,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      }));
+
+      // Activate uploaded file
+      setActiveFile(name);
+      setCodeContent(text);
+
+      alert(`File "${name}" uploaded successfully!`);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      alert("Could not upload the file.");
+    }
+  };
+
+  /* ------------------ MAIN CONTENT RENDER ------------------ */
   const renderMainContent = () => {
     if (activeView === "dashboard") return <Dashboard />;
     if (activeView === "projects") return <Projects />;
-    if (activeView === "tests") return <Tests isRunning={isRunning} onRun={() => {}} />;
+    if (activeView === "tests")
+      return <Tests isRunning={isRunning} onRun={() => {}} />;
     if (activeView === "settings") return <Settings />;
 
-    /* -------- DEBUG VIEW (FIXED LAYOUT) -------- */
     return (
       <div className="flex flex-col flex-1 min-h-0">
 
-        {/* ==== TOP AREA (420px) ==== */}
+        {/* TOP AREA (FIXED 422px) */}
         <div
           ref={containerRef}
           className="flex overflow-hidden"
-          style={{ height: "420px", minHeight: "420px", maxHeight: "420px" }}
+          style={{
+            height: "422px",
+            minHeight: "422px",
+            maxHeight: "422px",
+          }}
         >
           {/* LEFT Editor */}
           <div
@@ -329,7 +458,15 @@ int main() {
             </div>
 
             <div className="flex-1 overflow-auto min-h-0">
-              <CodeEditor codeContent={codeContent} onCodeChange={setCodeContent} language={language} />
+              <CodeEditor
+                codeContent={codeContent}
+                onCodeChange={setCodeContent}
+                language={language}
+                selectedLine={selectedLine}
+                onLineClick={(line) => setSelectedLine(line)}
+                currentStep={currentStep}
+                isExecuted={isExecuted}
+              />
             </div>
           </div>
 
@@ -349,7 +486,10 @@ int main() {
               overflow: "hidden",
             }}
           >
-            <VisualizerPane activeTab={activeVisualizer} onTabChange={setActiveVisualizer} />
+            <VisualizerPane
+              activeTab={activeVisualizer}
+              onTabChange={setActiveVisualizer}
+            />
           </div>
         </div>
 
@@ -358,10 +498,10 @@ int main() {
           <TimelineSlider currentStep={currentStep} totalSteps={totalSteps} />
         </div>
 
-        {/* Bottom Panel 260px */}
+        {/* BOTTOM FIXED PANEL */}
         <div
           className="bg-surface border-t border-border"
-          style={{ height: "260px", minHeight: "260px", maxHeight: "260px" }}
+          style={{ height: "300px", minHeight: "300px", maxHeight: "300px" }}
         >
           <div className="h-full overflow-auto">
             <BottomPanels selectedLine={selectedLine} />
@@ -369,6 +509,63 @@ int main() {
         </div>
       </div>
     );
+  };
+
+  /* ------------------ SIMPLE AUTH HANDLERS ------------------ */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("decapsule_user_v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setCurrentUser(parsed);
+        setIsLoggedIn(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleLogin = (email, password) => {
+    if (!email || !password) {
+      alert("Provide email and password");
+      return false;
+    }
+    const user = { name: email.split("@")[0], email };
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+    try {
+      localStorage.setItem("decapsule_user_v1", JSON.stringify(user));
+    } catch {}
+    return true;
+  };
+
+  const handleSignup = (fullName, email, password, confirmPassword) => {
+    if (!fullName || !email || !password) {
+      alert("Fill all signup fields");
+      return false;
+    }
+    if (password.length < 6) {
+      alert("Password must be at least 6 chars");
+      return false;
+    }
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return false;
+    }
+    const user = { name: fullName, email };
+    setCurrentUser(user);
+    setIsLoggedIn(true);
+    try {
+      localStorage.setItem("decapsule_user_v1", JSON.stringify(user));
+    } catch {}
+    return true;
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem("decapsule_user_v1");
+    } catch {}
+    setProfileOpen(false);
   };
 
   /* ------------------ RETURN ------------------ */
@@ -385,18 +582,42 @@ int main() {
         onDeleteFile={deleteFile}
         onDuplicateFile={duplicateFile}
         onShareLink={() => generateShareLink(activeFile)}
+        onSaveFile={saveFile}
+        onDownloadFile={downloadFile}
+        onDownloadPDF={downloadPDF}
+        onUploadFile={uploadFile}
         language={language}
+        onLanguageChange={setLanguage}
         theme={theme}
         onThemeToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
+        onProfileClick={() => setProfileOpen(true)}
+        onLogout={handleLogout}
+        isLoggedIn={isLoggedIn}
+        currentUser={currentUser}
       />
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-        <main className="flex-1 min-h-0">{renderMainContent()}</main>
+      <div className="flex flex-row h-full w-full overflow-hidden">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+
+        <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
+          {renderMainContent()}
+        </main>
       </div>
 
       <AutoFixModal open={autoFixOpen} onOpenChange={setAutoFixOpen} />
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+
+      <ProfileModal
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        isLoggedIn={isLoggedIn}
+        currentUser={currentUser}
+        onLogin={handleLogin}
+        onSignup={handleSignup}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }
