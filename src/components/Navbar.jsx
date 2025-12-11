@@ -28,6 +28,19 @@ const languageConfig = {
   java: { label: "Java", extension: ".java", icon: "☕" },
 };
 
+/* -------------- FILE EXTENSION → LANGUAGE ICON -------------- */
+const getFileIcon = (fileName) => {
+  if (!fileName) return "📄";
+  const ext = fileName.split(".").pop().toLowerCase();
+
+  if (ext === "js") return "🟨";
+  if (ext === "py") return "🐍";
+  if (["cpp", "cc", "cxx", "c++", "c"].includes(ext)) return "⚙️";
+  if (ext === "java") return "☕";
+
+  return "📄";
+};
+
 export function Navbar({
   files = {},
   activeFile,
@@ -63,27 +76,19 @@ export function Navbar({
   const startCreating = () => {
     setCreating(true);
     setTimeout(() => {
-      const input = document.getElementById("newFileInput");
-      if (input) input.focus();
+      document.getElementById("newFileInput")?.focus();
     }, 20);
   };
 
   const handleCreate = () => {
     const name = newFileName.trim();
-    if (!name) {
-      setCreating(false);
-      setNewFileName("");
-      return;
-    }
+    if (!name) return handleCloseCreate();
 
     onNewFile(name);
-
-    setNewFileName("");
-    setCreating(false);
-    document.body.click(); // close dropdown
+    handleCloseCreate();
   };
 
-  const handleClose = () => {
+  const handleCloseCreate = () => {
     setCreating(false);
     setNewFileName("");
     document.body.click();
@@ -95,30 +100,21 @@ export function Navbar({
 
   const startRenaming = () => {
     if (!activeFile) return;
+
     setRenaming(true);
     setRenameValue(activeFile);
 
     setTimeout(() => {
-      const input = document.getElementById("renameInput");
-      if (input) input.focus();
+      document.getElementById("renameInput")?.focus();
     }, 20);
   };
 
   const handleRename = () => {
-    if (!renameValue) return;
-
     const newName = renameValue.trim();
-    if (!newName) {
-      setRenaming(false);
-      setRenameValue("");
-      return;
-    }
+    if (!newName) return handleCancelRename();
 
     onRenameFile(activeFile, newName);
-
-    setRenaming(false);
-    setRenameValue("");
-    document.body.click();
+    handleCancelRename();
   };
 
   const handleCancelRename = () => {
@@ -150,13 +146,12 @@ export function Navbar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2">
-              {activeFile}
+              {getFileIcon(activeFile)} {activeFile}
               <ChevronDown className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="start" className="w-64 p-0">
-
             <div className="px-4 py-2 border-b text-xs font-semibold text-muted-foreground">
               Files
             </div>
@@ -171,7 +166,9 @@ export function Navbar({
                     activeFile === file ? "bg-muted" : ""
                   }`}
                 >
-                  <span>{file}</span>
+                  <span>
+                    {getFileIcon(file)} {file}
+                  </span>
                   <span className="text-xs text-muted-foreground">
                     {new Date(files[file]?.updatedAt).toLocaleDateString()}
                   </span>
@@ -181,7 +178,7 @@ export function Navbar({
 
             <DropdownMenuSeparator />
 
-            {/* ---------------- NEW FILE ---------------- */}
+            {/* NEW FILE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={startCreating}
@@ -195,29 +192,27 @@ export function Navbar({
                 <input
                   id="newFileInput"
                   value={newFileName}
-                  autoFocus
                   onChange={(e) => setNewFileName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleCreate();
-                    if (e.key === "Escape") handleClose();
+                    if (e.key === "Escape") handleCloseCreate();
                   }}
+                  className="w-full px-2 py-1 bg-muted border border-border rounded outline-none"
                   placeholder="Enter filename (ex: main.js)"
-                  className="w-full px-2 py-1 bg-muted rounded border border-border outline-none"
                 />
 
                 <div className="flex gap-2 mt-2">
-                  <Button size="sm" className="bg-primary text-primary-foreground flex-1" onClick={handleCreate}>
+                  <Button size="sm" className="bg-primary text-white flex-1" onClick={handleCreate}>
                     Create
                   </Button>
-
-                  <Button size="sm" variant="secondary" className="flex-1" onClick={handleClose}>
+                  <Button size="sm" variant="secondary" className="flex-1" onClick={handleCloseCreate}>
                     Close
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* ---------------- RENAME ---------------- */}
+            {/* RENAME */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={startRenaming}
@@ -231,21 +226,19 @@ export function Navbar({
                 <input
                   id="renameInput"
                   value={renameValue}
-                  autoFocus
                   onChange={(e) => setRenameValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleRename();
                     if (e.key === "Escape") handleCancelRename();
                   }}
+                  className="w-full px-2 py-1 bg-muted border border-border rounded outline-none"
                   placeholder="Enter new filename"
-                  className="w-full px-2 py-1 bg-muted rounded border border-border outline-none"
                 />
 
                 <div className="flex gap-2 mt-2">
-                  <Button size="sm" className="bg-primary text-primary-foreground flex-1" onClick={handleRename}>
+                  <Button size="sm" className="bg-primary text-white flex-1" onClick={handleRename}>
                     Save
                   </Button>
-
                   <Button size="sm" variant="secondary" className="flex-1" onClick={handleCancelRename}>
                     Cancel
                   </Button>
@@ -253,7 +246,7 @@ export function Navbar({
               </div>
             )}
 
-            {/* ---------------- DUPLICATE ---------------- */}
+            {/* DUPLICATE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={() => onDuplicateFile(activeFile)}
@@ -262,7 +255,7 @@ export function Navbar({
               📑 Duplicate
             </DropdownMenuItem>
 
-            {/* ---------------- DELETE ---------------- */}
+            {/* DELETE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={() => onDeleteFile(activeFile)}
@@ -273,7 +266,7 @@ export function Navbar({
 
             <DropdownMenuSeparator />
 
-            {/* ---------------- SAVE ---------------- */}
+            {/* SAVE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={() => onSaveFile(activeFile)}
@@ -282,7 +275,7 @@ export function Navbar({
               💾 Save
             </DropdownMenuItem>
 
-            {/* ---------------- DOWNLOAD FILE ---------------- */}
+            {/* DOWNLOAD */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={() => onDownloadFile(activeFile)}
@@ -291,7 +284,7 @@ export function Navbar({
               ⬇️ Download File
             </DropdownMenuItem>
 
-            {/* ---------------- DOWNLOAD PDF ---------------- */}
+            {/* PDF */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={() => onDownloadPDF(activeFile)}
@@ -300,7 +293,7 @@ export function Navbar({
               📄 Download PDF
             </DropdownMenuItem>
 
-            {/* ---------------- SHARE LINK ---------------- */}
+            {/* SHARE */}
             <DropdownMenuItem
               onSelect={(e) => e.preventDefault()}
               onClick={() => onShareLink(activeFile)}
@@ -309,14 +302,13 @@ export function Navbar({
               🔗 Share Link
             </DropdownMenuItem>
 
-            {/* ---------------- UPLOAD FILE ---------------- */}
+            {/* UPLOAD */}
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
               <label className="px-4 py-2 w-full cursor-pointer">
                 📤 Upload File
                 <input type="file" className="hidden" onChange={handleUpload} />
               </label>
             </DropdownMenuItem>
-
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -339,13 +331,15 @@ export function Navbar({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-
       </div>
 
-      {/* ---------------- RIGHT SIDE BUTTONS ---------------- */}
+      {/* ---------------- RIGHT ACTION BUTTONS ---------------- */}
       <div className="flex items-center gap-3">
-
-        <Button onClick={onRun} disabled={isRunning} className="bg-primary text-primary-foreground">
+        <Button
+          onClick={onRun}
+          disabled={isRunning}
+          className="bg-primary text-white"
+        >
           {isRunning ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Running…
@@ -361,7 +355,10 @@ export function Navbar({
           <Bug className="w-4 h-4 mr-2" /> Debug
         </Button>
 
-        <Button className="bg-tertiary text-tertiary-foreground" onClick={onAutoFixClick}>
+        <Button
+          className="bg-tertiary text-tertiary-foreground"
+          onClick={onAutoFixClick}
+        >
           <Zap className="w-4 h-4 mr-2" /> Auto-Fix
         </Button>
 
@@ -369,7 +366,7 @@ export function Navbar({
           {theme === "dark" ? <Moon /> : <Sun />}
         </Button>
 
-        {/* ---------------- PROFILE ---------------- */}
+        {/* PROFILE */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
@@ -382,21 +379,31 @@ export function Navbar({
               <>
                 <div className="px-4 py-2 border-b">
                   <p className="text-sm font-semibold">{currentUser?.name}</p>
-                  <p className="text-xs text-muted-foreground">{currentUser?.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentUser?.email}
+                  </p>
                 </div>
-                <DropdownMenuItem onClick={onProfileClick}>Profile</DropdownMenuItem>
+
+                <DropdownMenuItem onClick={onProfileClick}>
+                  Profile
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onProfileClick}>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={onProfileClick}>
+                  Logout
+                </DropdownMenuItem>
               </>
             ) : (
               <>
-                <DropdownMenuItem onClick={onProfileClick}>Login</DropdownMenuItem>
-                <DropdownMenuItem onClick={onProfileClick}>Sign Up</DropdownMenuItem>
+                <DropdownMenuItem onClick={onProfileClick}>
+                  Login
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onProfileClick}>
+                  Sign Up
+                </DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-
       </div>
     </nav>
   );

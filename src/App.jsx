@@ -170,22 +170,20 @@ function App() {
     }
   }, [activeFile, files]);
 
-  /* ------------------ 🔥 AUTO DETECT LANGUAGE FROM FILE EXT ------------------ */
- useEffect(() => {
-  if (!activeFile) return;
+  /* ------------------ 🔥 AUTO-DETECT LANGUAGE FROM EXT ------------------ */
+  useEffect(() => {
+    if (!activeFile) return;
 
-  const ext = activeFile.split(".").pop().toLowerCase();
-  let detected = "javascript";
+    const ext = activeFile.split(".").pop().toLowerCase();
 
-  if (ext === "js") detected = "javascript";
-  else if (ext === "py") detected = "python";
-  else if (ext === "cpp" || ext === "c++" || ext === "cc" || ext === "cxx" || ext ==="c")
-    detected = "cpp";
-  else if (ext === "java") detected = "java";
+    let detected = "javascript";
+    if (ext === "js") detected = "javascript";
+    else if (ext === "py") detected = "python";
+    else if (["cpp", "c++", "cc", "cxx", "c"].includes(ext)) detected = "cpp";
+    else if (ext === "java") detected = "java";
 
-  setLanguage(detected);   // ✅ FIX HERE
-}, [activeFile]);
-
+    setLanguage(detected);
+  }, [activeFile]);
 
   /* ------------------ PERSIST STORAGE ------------------ */
   useEffect(() => {
@@ -207,8 +205,37 @@ function App() {
   }, [codeContent]);
 
   /* ============================================================= */
-  /* ====================== FILE OPERATIONS ======================= */
+  /* ===================== FILE OPERATIONS ======================== */
   /* ============================================================= */
+
+  /* ---------- STARTER TEMPLATES (Option A) ---------- */
+  const STARTER_TEMPLATES = {
+    js: `function main() {
+  console.log("Hello JavaScript!");
+}
+
+main();`,
+
+    py: `def main():
+    print("Hello Python!")
+
+if __name__ == "__main__":
+    main()`,
+
+    cpp: `#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    cout << "Hello C++!" << endl;
+    return 0;
+}`,
+
+    java: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello Java!");
+    }
+}`,
+  };
 
   const createFile = (name) => {
     if (!name.trim()) return;
@@ -217,15 +244,13 @@ function App() {
     if (files[filename]) return alert("File already exists!");
 
     const now = Date.now();
+    const ext = filename.split(".").pop().toLowerCase();
 
-    const starter =
-      filename.endsWith(".py")
-        ? "# New Python File\n"
-        : filename.endsWith(".cpp")
-        ? "// New C++ File\n"
-        : filename.endsWith(".java")
-        ? "// New Java File\n"
-        : "// New JavaScript File\n";
+    let starter = STARTER_TEMPLATES.js;
+    if (ext === "py") starter = STARTER_TEMPLATES.py;
+    else if (["cpp", "c++", "cc", "cxx", "c"].includes(ext))
+      starter = STARTER_TEMPLATES.cpp;
+    else if (ext === "java") starter = STARTER_TEMPLATES.java;
 
     setFiles((prev) => ({
       ...prev,
@@ -333,7 +358,7 @@ function App() {
     }
   };
 
-  /* ---------------- PDF DOWNLOAD (FIXED) ---------------- */
+  /* ---------------- PDF DOWNLOAD ---------------- */
   const downloadPDF = (name) => {
     try {
       const content = files[name]?.content || "";
@@ -349,7 +374,7 @@ function App() {
     }
   };
 
-  /* ---------------- DOWNLOAD FILE ---------------- */
+  /* ---------------- DOWNLOAD PLAIN FILE ---------------- */
   const downloadFile = (name) => {
     const blob = new Blob([files[name].content], { type: "text/plain" });
     const a = document.createElement("a");
