@@ -1,4 +1,3 @@
-// App.jsx  (complete updated file)
 import React, { useState, useEffect, useRef } from "react";
 
 // MAIN COMPONENTS
@@ -8,7 +7,6 @@ import { CodeEditor } from "./components/CodeEditor.jsx";
 import { VisualizerPane } from "./components/VisualizerPane.jsx";
 import { TimelineSlider } from "./components/TimelineSlider.jsx";
 import { BottomPanels } from "./components/BottomPanels.jsx";
-import { AutoFixModal } from "./components/AutoFixModal.jsx";
 import { ProfileModal } from "./components/ProfileModal.jsx";
 
 // PAGE VIEWS
@@ -58,7 +56,7 @@ console.log(quicksort([5, 3, 8, 1, 2]));`,
     const node = q.shift();
     console.log('visit', node);
 
-    for(const nei of graph[node] || []){
+    for(const nei of graph[node] || []) {
       if(!visited.has(nei)){
         visited.add(nei);
         q.push(nei);
@@ -100,12 +98,15 @@ function base64DecodeUnicode(b64) {
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Visualizer tab state
+  const [activeTab, setActiveTab] = useState("recursion");
   const [activeVisualizer, setActiveVisualizer] = useState("recursion");
-  const [autoFixOpen, setAutoFixOpen] = useState(false);
   const [selectedLine, setSelectedLine] = useState(null);
+
   const [language, setLanguage] = useState("javascript");
   const [isRunning, setIsRunning] = useState(false);
-  const [isExecuted, setIsExecuted] = useState(false);
+  const [isExecuted, setIsExecuted] = useState(false); // run executed flag
   const [activeView, setActiveView] = useState("debug");
   const [theme, setTheme] = useState("dark");
   const [codeContent, setCodeContent] = useState("");
@@ -183,7 +184,7 @@ function App() {
     document.removeEventListener("mouseup", stopDrag);
   };
 
-  /* ------------------ Shared Code Loader ------------------ */
+    /* ------------------ Shared Code Loader ------------------ */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get("code");
@@ -199,7 +200,9 @@ function App() {
         setActiveFile(af);
         setCodeContent(decoded.files[af].content);
       }
-    } catch {}
+    } catch (err) {
+      console.warn("Failed to decode shared code:", err);
+    }
   }, []);
 
   /* ------------------ SHARE LINK ------------------ */
@@ -224,11 +227,11 @@ function App() {
 
   /* ------------------ Auto Detect Language ------------------ */
   useEffect(() => {
-    const ext = activeFile.split(".").pop();
+    const ext = (activeFile || "").split(".").pop();
     setLanguage(
       ext === "py"
         ? "python"
-        : ["cpp", "c", "cc", "cxx","c++"].includes(ext)
+        : ["cpp", "c", "cc", "cxx", "c++"].includes(ext)
         ? "cpp"
         : ext === "java"
         ? "java"
@@ -319,20 +322,22 @@ int main() {
     setCodeContent(files[name].content);
   };
 
-  /* ------------------ SAVE FILE (FIXED FUNCTION) ------------------ */
+  /* ------------------ SAVE FILE ------------------ */
   const saveFile = () => {
-    setFiles((prev) => ({
-      ...prev,
-      [activeFile]: {
-        ...prev[activeFile],
-        content: codeContent,
-        updatedAt: Date.now(),
-      },
-    }));
-
-    saveToStorage({
-      files,
-      activeFile,
+    setFiles((prev) => {
+      const updated = {
+        ...prev,
+        [activeFile]: {
+          ...prev[activeFile],
+          content: codeContent,
+          updatedAt: Date.now(),
+        },
+      };
+      saveToStorage({
+        files: updated,
+        activeFile,
+      });
+      return updated;
     });
 
     alert("File saved successfully!");
@@ -346,7 +351,6 @@ int main() {
     }
 
     const content = files[activeFile].content;
-
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
 
@@ -399,10 +403,9 @@ int main() {
   /* ------------------ UPLOAD FILE ------------------ */
   const uploadFile = async (file) => {
     try {
-      const text = await file.text(); // read file content
+      const text = await file.text();
       const name = file.name;
 
-      // Add file to system
       setFiles((prev) => ({
         ...prev,
         [name]: {
@@ -412,7 +415,6 @@ int main() {
         },
       }));
 
-      // Activate uploaded file
       setActiveFile(name);
       setCodeContent(text);
 
@@ -423,203 +425,442 @@ int main() {
     }
   };
 
-  /* ------------------ MAIN CONTENT RENDER ------------------ */
-  const renderMainContent = () => {
-    if (activeView === "dashboard") return <Dashboard />;
-    if (activeView === "projects") return <Projects />;
-    if (activeView === "tests")
-      return <Tests isRunning={isRunning} onRun={() => {}} />;
-    if (activeView === "settings") return <Settings />;
+  /* ---------------------------------------------------------------- */
+  /* ---------------------- RUN (NORMAL MODE) ------------------------ */
+  /* ---------------------------------------------------------------- */
 
-    return (
-      <div className="flex flex-col flex-1 min-h-0">
+  const [outputText, setOutputText] = useState("");
 
-        {/* TOP AREA (FIXED 422px) */}
-        <div
-          ref={containerRef}
-          className="flex overflow-hidden"
-          style={{
-            height: "422px",
-            minHeight: "422px",
-            maxHeight: "422px",
-          }}
-        >
-          {/* LEFT Editor */}
-          <div
-            className="min-w-0 flex flex-col border-r border-border"
-            style={{
-              width: `${editorPercent}%`,
-              height: "420px",
-              overflow: "hidden",
-            }}
-          >
-            <div className="px-4 py-2 border-b bg-card text-sm font-semibold">
-              Code Editor
-            </div>
+  const handleRun = async (fileName, input = "") => {
+    const codeFromFiles = files?.[fileName]?.content;
+    const codeToSend =
+      typeof codeFromFiles === "string" && codeFromFiles.length > 0
+        ? codeFromFiles
+        : codeContent;
 
-            <div className="flex-1 overflow-auto min-h-0">
-              <CodeEditor
-                codeContent={codeContent}
-                onCodeChange={setCodeContent}
-                language={language}
-                selectedLine={selectedLine}
-                onLineClick={(line) => setSelectedLine(line)}
-                currentStep={currentStep}
-                isExecuted={isExecuted}
-              />
-            </div>
-          </div>
+    if (!codeToSend) {
+      alert("No code to run!");
+      return;
+    }
 
-          {/* DIVIDER */}
-          <div
-            onMouseDown={startDrag}
-            className="w-1 cursor-col-resize bg-muted/40 hover:bg-muted"
-            style={{ zIndex: 10 }}
-          />
+    setIsRunning(true);
+    setIsExecuted(false);
+    setOutputText("Running...");
 
-          {/* RIGHT Visualizer */}
-          <div
-            className="min-w-[300px] flex flex-col"
-            style={{
-              width: `${100 - editorPercent}%`,
-              height: "420px",
-              overflow: "hidden",
-            }}
-          >
-            <VisualizerPane
-              activeTab={activeVisualizer}
-              onTabChange={setActiveVisualizer}
-            />
-          </div>
-        </div>
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
-        {/* TIMELINE */}
-        <div className="border-t border-border">
-          <TimelineSlider currentStep={currentStep} totalSteps={totalSteps} />
-        </div>
+      const res = await fetch(`${base}/run/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeToSend,
+          input: input || "",
+        }),
+      });
 
-        {/* BOTTOM FIXED PANEL */}
-        <div
-          className="bg-surface border-t border-border"
-          style={{ height: "300px", minHeight: "300px", maxHeight: "300px" }}
-        >
-          <div className="h-full overflow-auto">
-            <BottomPanels selectedLine={selectedLine} />
-          </div>
-        </div>
-      </div>
-    );
+      const data = await res.json();
+
+      let finalOutput = "";
+
+      if (data.stdout) {
+        finalOutput += data.stdout.replace(/\r\n/g, "\n");
+      }
+
+      if (data.stderr) {
+        finalOutput += `\nError:\n${data.stderr}`;
+      }
+
+      if (typeof data.exit_code !== "undefined" && data.exit_code !== 0) {
+        finalOutput += `\n\nExit Code: ${data.exit_code}`;
+      }
+
+      setOutputText(finalOutput.trim());
+      setIsExecuted(true);
+    } catch (err) {
+      console.error("Run error:", err);
+      setOutputText("Error running code");
+      setIsExecuted(true);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
-  /* ------------------ SIMPLE AUTH HANDLERS ------------------ */
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("decapsule_user_v1");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setCurrentUser(parsed);
-        setIsLoggedIn(true);
+  /* ==================================================================== */
+  /* ========================== DEBUG MODE (SSE) ========================= */
+  /* ==================================================================== */
+
+  const [debugData, setDebugData] = useState(null);
+  const [isDebugging, setIsDebugging] = useState(false);
+
+  // we keep the SSE connection here
+  const streamRef = useRef(null);
+
+  // deep merge helper for partial streaming patches
+  const mergeDebug = (prev = {}, patch = {}) => {
+    const next = { ...prev };
+    for (const key of Object.keys(patch)) {
+      const val = patch[key];
+      if (Array.isArray(val)) {
+        next[key] = Array.isArray(next[key]) ? [...next[key], ...val] : [...val];
+      } else if (val && typeof val === "object" && !Array.isArray(val)) {
+        next[key] = mergeDebug(next[key] || {}, val);
+      } else {
+        next[key] = val;
       }
-    } catch {}
+    }
+    return next;
+  };
+
+  // robust SSE JSON parser
+  const parseSSEData = (raw) => {
+    if (!raw) return null;
+    let text = raw.trim();
+
+    // strip "data:" prefix if present
+    if (text.startsWith("data:")) {
+      text = text.replace(/^data:\s*/i, "");
+    }
+
+    // find JSON boundaries
+    const first = text.indexOf("{");
+    const last = text.lastIndexOf("}");
+    if (first >= 0 && last > first) {
+      text = text.substring(first, last + 1);
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      console.warn("SSE JSON parse failed:", text);
+      return null;
+    }
+  };
+
+  // start SSE streaming after POST
+  const startEventStream = (sessionId = null) => {
+    if (streamRef.current) {
+      try { streamRef.current.close(); } catch {}
+      streamRef.current = null;
+    }
+
+    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    let url = `${base}/process_stream/stream`;
+
+    // if server returned a session ID, attach it
+    if (sessionId) {
+      url += `?session_id=${encodeURIComponent(sessionId)}`;
+    }
+
+    const es = new EventSource(url);
+    streamRef.current = es;
+
+    es.addEventListener("open", () => {
+      console.log("SSE connection opened:", url);
+    });
+
+    es.addEventListener("error", (ev) => {
+      console.error("SSE error:", ev);
+    });
+
+    es.addEventListener("message", (ev) => {
+      const parsed = parseSSEData(ev.data);
+
+      if (!parsed || typeof parsed !== "object") {
+        setOutputText((prev) =>
+          prev ? prev + "\n" + ev.data : ev.data
+        );
+        return;
+      }
+
+      const stage = parsed.stage;
+      const payload = parsed.payload ?? {};
+
+      switch (stage) {
+        case "classification":
+          setDebugData((prev) => mergeDebug(prev, { classification: payload }));
+          break;
+
+        case "runtime_start":
+          setDebugData((prev) =>
+            mergeDebug(prev, { runtime: { started: true, meta: payload } })
+          );
+          break;
+
+        case "runtime":
+          setDebugData((prev) =>
+            mergeDebug(prev, {
+              runtime: { ...(prev?.runtime || {}), ...payload },
+            })
+          );
+
+          setOutputText((prev) => {
+            let next = prev || "";
+            if (payload.stdout) {
+              next += (next ? "\n" : "") + payload.stdout.replace(/\r\n/g, "\n");
+            }
+            if (payload.stderr) {
+              next +=
+                (next ? "\n" : "") +
+                "Error:\n" +
+                payload.stderr.replace(/\r\n/g, "\n");
+            }
+            return next;
+          });
+          break;
+
+        case "analysis":
+          setDebugData((prev) => mergeDebug(prev, { analysis: payload }));
+          break;
+
+        case "dp":
+        case "dp_skipped":
+          setDebugData((prev) => mergeDebug(prev, { dp: payload }));
+          break;
+
+        case "recursion_tree":
+          setDebugData((prev) => mergeDebug(prev, { recursion_tree: payload }));
+          break;
+
+        case "issues":
+          setDebugData((prev) => mergeDebug(prev, { issues: payload || [] }));
+          break;
+
+        case "explain_start":
+          setDebugData((prev) =>
+            mergeDebug(prev, { explanation_in_progress: true })
+          );
+          break;
+
+        case "explanation":
+          setDebugData((prev) =>
+            mergeDebug(prev, { explanation: payload })
+          );
+          break;
+
+        case "done":
+          // merge everything final
+          setDebugData((prev) => mergeDebug(prev, payload || {}));
+          setIsExecuted(true);
+          setIsDebugging(false);
+
+          // handle final runtime output
+          if (payload.runtime) {
+            setOutputText((prev) => {
+              let next = prev || "";
+              if (payload.runtime.stdout) {
+                next +=
+                  (next ? "\n" : "") +
+                  payload.runtime.stdout.replace(/\r\n/g, "\n");
+              }
+              if (payload.runtime.stderr) {
+                next +=
+                  (next ? "\n" : "") +
+                  "Error:\n" +
+                  payload.runtime.stderr.replace(/\r\n/g, "\n");
+              }
+              return next;
+            });
+          }
+
+          try { es.close(); } catch {}
+          streamRef.current = null;
+          break;
+
+        default:
+          setDebugData((prev) =>
+            mergeDebug(prev, { [stage || "unknown"]: payload })
+          );
+          break;
+      }
+    });
+  };
+
+  // cleanup on app unload
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        try { streamRef.current.close(); } catch {}
+        streamRef.current = null;
+      }
+    };
   }, []);
 
-  const handleLogin = (email, password) => {
-    if (!email || !password) {
-      alert("Provide email and password");
-      return false;
+  /* ---------------------------------------------------------------- */
+  /* ------------------------ DEBUG HANDLER -------------------------- */
+  /* ---------------------------------------------------------------- */
+
+  const handleDebug = async (fileName, input = "") => {
+    const codeFromFiles = files?.[fileName]?.content;
+    const codeToSend =
+      typeof codeFromFiles === "string" && codeFromFiles.length > 0
+        ? codeFromFiles
+        : codeContent;
+
+    if (!codeToSend) {
+      alert("No code to debug!");
+      return;
     }
-    const user = { name: email.split("@")[0], email };
-    setCurrentUser(user);
-    setIsLoggedIn(true);
+
+    setIsDebugging(true);
+    setDebugData(null);
+    setIsExecuted(false);
+    setOutputText("");
+
+    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+
     try {
-      localStorage.setItem("decapsule_user_v1", JSON.stringify(user));
-    } catch {}
-    return true;
+      // send the code first
+      const res = await fetch(`${base}/process_stream/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeToSend,
+          language,
+          filename: fileName,
+        }),
+      });
+
+      let sessionId = null;
+
+      if (res.ok) {
+        const json = await res.json();
+        sessionId = json.session_id || null;
+      }
+
+      // now start SSE
+      startEventStream(sessionId);
+    } catch (err) {
+      console.error("Debug POST error:", err);
+      setIsDebugging(false);
+      alert("Failed to start debug session.");
+    }
   };
 
-  const handleSignup = (fullName, email, password, confirmPassword) => {
-    if (!fullName || !email || !password) {
-      alert("Fill all signup fields");
-      return false;
-    }
-    if (password.length < 6) {
-      alert("Password must be at least 6 chars");
-      return false;
-    }
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
-      return false;
-    }
-    const user = { name: fullName, email };
-    setCurrentUser(user);
-    setIsLoggedIn(true);
-    try {
-      localStorage.setItem("decapsule_user_v1", JSON.stringify(user));
-    } catch {}
-    return true;
-  };
+  /* ==================================================================== */
+  /* =================== END OF SSE DEBUG SYSTEM ======================== */
+  /* ==================================================================== */
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    try {
-      localStorage.removeItem("decapsule_user_v1");
-    } catch {}
-    setProfileOpen(false);
-  };
+  /* ==================================================================== */
+  /* ============================ RENDER UI ============================== */
+  /* ==================================================================== */
 
-  /* ------------------ RETURN ------------------ */
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div className={`w-full h-screen flex flex-col ${theme === "dark" ? "dark" : ""}`}>
+      {/* ---------------- NAVBAR ---------------- */}
       <Navbar
         files={files}
         activeFile={activeFile}
-        onFileSelect={(f) => {
-          setActiveFile(f);
-          setCodeContent(files[f].content);
-        }}
+        onFileSelect={setActiveFile}
         onNewFile={createFile}
+        onRenameFile={(oldName, newName) => {
+          if (!files[oldName]) return;
+          const updated = { ...files };
+          updated[newName] = { ...updated[oldName], updatedAt: Date.now() };
+          delete updated[oldName];
+          setFiles(updated);
+          setActiveFile(newName);
+          setCodeContent(updated[newName].content);
+        }}
         onDeleteFile={deleteFile}
         onDuplicateFile={duplicateFile}
-        onShareLink={() => generateShareLink(activeFile)}
         onSaveFile={saveFile}
         onDownloadFile={downloadFile}
         onDownloadPDF={downloadPDF}
         onUploadFile={uploadFile}
+        onShareLink={generateShareLink}
+        onRun={handleRun}
+        onDebugClick={handleDebug}
+        isRunning={isRunning}
         language={language}
         onLanguageChange={setLanguage}
         theme={theme}
-        onThemeToggle={() => setTheme(theme === "dark" ? "light" : "dark")}
+        onThemeToggle={() =>
+          setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+        }
         onProfileClick={() => setProfileOpen(true)}
-        onLogout={handleLogout}
+        onLogout={() => setIsLoggedIn(false)}
         isLoggedIn={isLoggedIn}
         currentUser={currentUser}
       />
 
-      <div className="flex flex-row h-full w-full overflow-hidden">
+      {/* ---------------- MAIN LAYOUT ---------------- */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* -------- SIDEBAR -------- */}
         <Sidebar
           collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onToggle={() => setSidebarCollapsed((p) => !p)}
+          activeView={activeView}
+          onViewChange={setActiveView}
+          onDebugClick={() => handleDebug(activeFile)}
         />
 
-        <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
-          {renderMainContent()}
-        </main>
+        {/* -------- CONTENT AREA -------- */}
+        <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
+          {/* Top half: Editor + Visualizer */}
+          <div className="flex flex-1 relative overflow-hidden">
+            {/* Editor */}
+            <div
+              className="h-full border-r border-border overflow-hidden"
+              style={{ width: `${editorPercent}%` }}
+            >
+              <CodeEditor
+                selectedLine={selectedLine}
+                onLineClick={setSelectedLine}
+                currentStep={currentStep}
+                language={language}
+                isExecuted={isExecuted}
+                codeContent={codeContent}
+                onCodeChange={setCodeContent}
+                activeFile={activeFile}
+              />
+            </div>
+
+            {/* Drag bar */}
+            <div
+              className="w-1 bg-border cursor-col-resize hover:bg-primary"
+              onMouseDown={startDrag}
+            />
+
+            {/* Visualizer */}
+            <div className="flex-1 overflow-hidden">
+              <VisualizerPane
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                currentStep={currentStep}
+                isExecuted={isExecuted}
+                debugData={debugData}
+              />
+            </div>
+          </div>
+
+          {/* Drag for Bottom Panel */}
+          <div
+            className="w-full h-1 bg-border cursor-row-resize hover:bg-primary"
+            onMouseDown={startBottomDrag}
+          />
+
+          {/* Bottom Panel */}
+          <div
+            className="w-full bg-card border-t border-border"
+            style={{ height: bottomPanelHeight }}
+          >
+            <BottomPanels
+              selectedLine={selectedLine}
+              outputText={outputText}
+              isExecuted={isExecuted}
+              debugData={debugData}
+              isDebugging={isDebugging}
+            />
+          </div>
+        </div>
       </div>
 
-      <AutoFixModal open={autoFixOpen} onOpenChange={setAutoFixOpen} />
-
-      <ProfileModal
-        open={profileOpen}
-        onOpenChange={setProfileOpen}
-        isLoggedIn={isLoggedIn}
-        currentUser={currentUser}
-        onLogin={handleLogin}
-        onSignup={handleSignup}
-        onLogout={handleLogout}
-      />
+      {/* ---------------- PROFILE MODAL ---------------- */}
+      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
   );
 }
 
 export default App;
+

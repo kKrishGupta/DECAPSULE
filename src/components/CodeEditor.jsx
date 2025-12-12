@@ -53,26 +53,31 @@ export function CodeEditor({
       ? codeContent
       : codeExamples[language] || "";
 
-  // 🔥 Draw line numbers WITHOUT React
+  /* ---------------- Line Number Update ---------------- */
   const updateLineNumbers = (text) => {
     if (!lineRef.current) return;
     const count = (text || "").split("\n").length;
-
     let html = "";
     for (let i = 1; i <= count; i++) html += i + "\n";
-
     lineRef.current.textContent = html;
   };
 
-  // Load file / change language
+  /* ---------------- Load File Content ---------------- */
   React.useEffect(() => {
     if (!editorRef.current) return;
-
-    editorRef.current.innerText = safeCode;
+    editorRef.current.textContent = safeCode;
     updateLineNumbers(safeCode);
   }, [activeFile, language]);
 
-  // Highlight running line
+  /* ---------------- TAB KEY SUPPORT ---------------- */
+  const handleKeyDown = (e) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      document.execCommand("insertText", false, "    "); // insert 4 spaces
+    }
+  };
+
+  /* ---------------- Running Line Highlight ---------------- */
   const executingLine = isExecuted
     ? Math.min(Math.floor(currentStep / 2) + 1, safeCode.split("\n").length)
     : null;
@@ -86,7 +91,7 @@ export function CodeEditor({
       <ScrollArea className="flex-1">
         <div className="relative w-full h-full font-mono text-sm">
 
-          {/* ⭐ FINAL NON-FLICKER LINE NUMBER PANEL */}
+          {/* ⭐ Line Numbers */}
           <pre
             ref={lineRef}
             className="
@@ -102,39 +107,44 @@ export function CodeEditor({
             "
           />
 
-          {/* ⭐ EDITABLE CODE BOX */}
+          {/* ⭐ EDITABLE CODE AREA */}
           <div
             ref={editorRef}
             contentEditable
             suppressContentEditableWarning
+            spellCheck="false"
+            onKeyDown={handleKeyDown}
             onInput={(e) => {
-              const text = e.currentTarget.innerText;
+              const text = e.currentTarget.textContent; // PRESERVE INDENTATION
               onCodeChange(text);
               updateLineNumbers(text);
             }}
             onClick={() => {
               const sel = window.getSelection();
+              if (!sel || !editorRef.current) return;
+
               const pos = sel.anchorOffset;
-              const txt = editorRef.current.innerText;
+              const txt = editorRef.current.textContent || "";
               const line = txt.substring(0, pos).split("\n").length;
+
               onLineClick?.(line);
             }}
             className="
               pl-14
               pr-4
               py-2
-              whitespace-pre-wrap
+              whitespace-pre
               break-words
               outline-none
               min-h-full
               text-foreground
               leading-6
               cursor-text
+              font-mono
             "
-            spellCheck="false"
           />
 
-          {/* RUNNING LINE HIGHLIGHT */}
+          {/* ⭐ RUNNING LINE HIGHLIGHT */}
           {executingLine && (
             <div
               className="absolute left-0 right-0 bg-primary/10 animate-pulse-glow"

@@ -1,133 +1,121 @@
-import React from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import React from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-export function BottomPanels({ selectedLine, currentStep, language, isExecuted }) {
-  const variables = [
-    { name: 'n', value: '10', type: 'number' },
-    { name: 'memo', value: '{ 0: 0, 1: 1, 2: 1, 3: 2 }', type: 'object' },
-    { name: 'result', value: '55', type: 'number' },
-  ];
+export function BottomPanels({
+  selectedLine,
+  outputText,
+  isExecuted,
 
-  const callStack = [
-    { function: 'fibonacci(10)', line: 7 },
-    { function: 'fibonacci(9)', line: 7 },
-    { function: 'fibonacci(8)', line: 7 },
-  ];
+  // Debug information
+  debugData,
+  isDebugging
+}) {
+  /* --------------------------------------------------------
+      OUTPUT (RUN MODE)
+  -------------------------------------------------------- */
+  const safeLines =
+    outputText && typeof outputText === "string"
+      ? outputText.replace(/\r\n/g, "\n").trim().split("\n")
+      : [];
 
-  const logs = [
-    { time: '0.001s', level: 'info', message: 'Starting fibonacci(10)' },
-    { time: '0.002s', level: 'debug', message: 'Checking memo for n=10' },
-    { time: '0.003s', level: 'debug', message: 'Computing fibonacci(9)' },
-    { time: '0.004s', level: 'info', message: 'Result: 55' },
-  ];
+  /* --------------------------------------------------------
+      DEBUG (BACKEND) DATA – NORMALIZED
+  -------------------------------------------------------- */
+  const isDebugDone = !!debugData;
 
-  const output = [
-    '> fibonacci(10)',
-    'Starting fibonacci(10)',
-    'Computing fibonacci(9)',
-    'Computing fibonacci(8)',
-    '✓ Result: 55',
-    '',
-    'Execution completed in 4ms',
-  ];
+  const callStack = Array.isArray(debugData?.stack) ? debugData.stack : [];
+  const logs = Array.isArray(debugData?.logs) ? debugData.logs : [];
+  const watch = Array.isArray(debugData?.watch) ? debugData.watch : [];
+  const snapshots = Array.isArray(debugData?.snapshots)
+    ? debugData.snapshots
+    : [];
 
+  const answer = debugData?.answer;
+  const displayAnswer =
+    answer !== undefined ? JSON.stringify(answer, null, 2) : "No answer";
+
+  /* --------------------------------------------------------
+      RENDER UI
+  -------------------------------------------------------- */
   return (
-    <div className="h-40 bg-card">
-      <Tabs defaultValue="output" className="h-full flex flex-col">
+    <div className="h-[380px] bg-card flex flex-col border-t border-border">
+      <Tabs defaultValue="output" className="flex-1 flex flex-col overflow-hidden">
+        
+        {/* ---------------- TAB HEADER ---------------- */}
         <div className="px-6 py-2 border-b border-border">
           <TabsList className="bg-muted">
-            
-            {/* 🔄 OUTPUT NOW FIRST */}
-            <TabsTrigger
-              value="output"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Output
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="stack"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Call Stack
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="logs"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Logs
-            </TabsTrigger>
-
-            {/* 🔄 WATCH MOVED HERE */}
-            <TabsTrigger
-              value="watch"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Watch
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="explanation"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground"
-            >
-              Explanation
-            </TabsTrigger>
+            <TabsTrigger value="output">Output</TabsTrigger>
+            <TabsTrigger value="stack">Call Stack</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="watch">Watch</TabsTrigger>
+            <TabsTrigger value="explanation">Explanation</TabsTrigger>
           </TabsList>
         </div>
 
         <div className="flex-1 overflow-hidden">
 
-          {/* 🔄 OUTPUT TAB FIRST */}
-          <TabsContent value="output" className="h-full m-0">
+          {/* ==================== OUTPUT TAB ==================== */}
+          <TabsContent value="output" className="flex-1 m-0 overflow-hidden">
             <ScrollArea className="h-full p-6">
               {!isExecuted ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-muted-foreground">Run code to view output</p>
                 </div>
               ) : (
-                <div className="bg-black rounded-md p-4 border border-border">
-                  <div className="font-mono text-sm leading-relaxed">
-                    {output.map((line, i) => (
-                      <div key={i} className={
-                        line.startsWith('>')
-                          ? 'text-cyan-400 font-bold'
-                          : line.startsWith('✓')
-                          ? 'text-green-400'
-                          : line === ''
-                          ? 'h-2'
-                          : 'text-green-300'
-                      }>
-                        {line || '\u00a0'}
-                      </div>
-                    ))}
+                <div className="bg-black rounded-md p-4 border border-border min-h-[260px]">
+                  <p className="text-cyan-400 font-bold mb-1">Output:</p>
+                  <p className="text-muted-foreground mb-3">----------------</p>
+
+                  <div className="font-mono text-sm text-green-300 leading-relaxed whitespace-pre-wrap">
+                    {safeLines.length === 0 ? (
+                      <p className="text-muted-foreground">No output</p>
+                    ) : (
+                      safeLines.map((line, i) => (
+                        <div
+                          key={i}
+                          className={
+                            line.startsWith(">")
+                              ? "text-cyan-400 font-bold"
+                              : line.startsWith("✓")
+                              ? "text-green-400"
+                              : "text-green-300"
+                          }
+                        >
+                          {line.trim() === "" ? "\u00A0" : line}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="stack" className="h-full m-0">
+          {/* ==================== CALL STACK TAB ==================== */}
+          <TabsContent value="stack" className="flex-1 m-0 overflow-hidden">
             <ScrollArea className="h-full p-6">
-              {!isExecuted ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Run code to view call stack</p>
-                </div>
+              {!isDebugDone ? (
+                <p className="text-muted-foreground">Debug to see call stack</p>
+              ) : callStack.length === 0 ? (
+                <p className="text-muted-foreground">No call stack</p>
               ) : (
                 <div className="space-y-2">
                   {callStack.map((frame, i) => (
                     <div
                       key={i}
-                      className={`p-3 rounded-md border transition-colors ${
-                        i === 0
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border bg-background hover:bg-muted/50'
-                      }`}
+                      className="p-3 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm text-foreground">{frame.function}</span>
-                        <span className="text-xs text-muted-foreground">Line {frame.line}</span>
+                        <span className="font-mono text-sm">
+                          {frame.function || frame.fn || "unknown"}
+                        </span>
+
+                        {frame.line && (
+                          <span className="text-xs text-muted-foreground">
+                            Line {frame.line}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -136,29 +124,20 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="logs" className="h-full m-0">
+          {/* ==================== LOGS TAB ==================== */}
+          <TabsContent value="logs" className="flex-1 m-0 overflow-hidden">
             <ScrollArea className="h-full p-6">
-              {!isExecuted ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Run code to view execution logs</p>
-                </div>
+              {!isDebugDone ? (
+                <p className="text-muted-foreground">Debug to see logs</p>
+              ) : logs.length === 0 ? (
+                <p className="text-muted-foreground">No logs</p>
               ) : (
                 <div className="space-y-2 font-mono text-xs">
                   {logs.map((log, i) => (
                     <div key={i} className="flex gap-3 text-foreground">
-                      <span className="text-muted-foreground">{log.time}</span>
-                      <span
-                        className={
-                          log.level === 'info'
-                            ? 'text-success'
-                            : log.level === 'debug'
-                            ? 'text-primary'
-                            : 'text-foreground'
-                        }
-                      >
-                        [{log.level}]
-                      </span>
-                      <span className="text-foreground">{log.message}</span>
+                      <span className="text-muted-foreground">{log.time || ""}</span>
+                      <span className="text-primary">[{log.level || "log"}]</span>
+                      <span>{log.message || JSON.stringify(log)}</span>
                     </div>
                   ))}
                 </div>
@@ -166,25 +145,26 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
             </ScrollArea>
           </TabsContent>
 
-          {/* 🔄 WATCH TAB MOVED HERE */}
-          <TabsContent value="watch" className="h-full m-0">
+          {/* ==================== WATCH TAB ==================== */}
+          <TabsContent value="watch" className="flex-1 m-0 overflow-hidden">
             <ScrollArea className="h-full p-6">
-              {!isExecuted ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Run code to watch variables</p>
-                </div>
+              {!isDebugDone ? (
+                <p className="text-muted-foreground">Debug to view variables</p>
+              ) : watch.length === 0 ? (
+                <p className="text-muted-foreground">No watched variables</p>
               ) : (
                 <div className="space-y-2">
-                  {variables.map((variable, i) => (
+                  {watch.map((variable, i) => (
                     <div
                       key={i}
                       className="flex items-center justify-between p-3 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm text-primary">{variable.name}</span>
-                        <span className="text-xs text-muted-foreground">{variable.type}</span>
-                      </div>
-                      <span className="font-mono text-sm text-foreground">{variable.value}</span>
+                      <span className="font-mono text-sm text-primary">
+                        {variable.name}
+                      </span>
+                      <span className="font-mono text-sm text-foreground">
+                        {JSON.stringify(variable.value)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -192,28 +172,36 @@ export function BottomPanels({ selectedLine, currentStep, language, isExecuted }
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="explanation" className="h-full m-0">
+          {/* ==================== EXPLANATION TAB ==================== */}
+          <TabsContent value="explanation" className="flex-1 m-0 overflow-hidden">
             <ScrollArea className="h-full p-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-2">
-                    Line {selectedLine || 'N/A'} Explanation
-                  </h3>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    This line implements the memoization check. Before computing the Fibonacci
-                    value recursively, we check if it's already been calculated and stored in the
-                    memo object. This optimization reduces time complexity from O(2^n) to O(n).
-                  </p>
-                </div>
-                <div className="p-4 rounded-md bg-primary/10 border border-primary">
-                  <p className="text-sm text-foreground">
-                    <strong className="text-primary">Tip:</strong> Dynamic programming combines
-                    recursion with memoization to avoid redundant calculations.
-                  </p>
-                </div>
-              </div>
+              {!isDebugDone ? (
+                <p className="text-muted-foreground">Debug to see explanation</p>
+              ) : (
+                <>
+                  <h3 className="text-sm font-semibold mb-2">Final Answer</h3>
+                  <pre className="font-mono text-primary mb-3">{displayAnswer}</pre>
+
+                  <h3 className="text-sm font-semibold mb-2">Snapshots</h3>
+                  {snapshots.length === 0 ? (
+                    <p className="text-muted-foreground">No snapshots</p>
+                  ) : (
+                    snapshots.map((s, i) => (
+                      <div
+                        key={i}
+                        className="p-3 my-2 rounded-md border border-border bg-muted/40"
+                      >
+                        <pre className="text-xs whitespace-pre-wrap">
+                          {JSON.stringify(s, null, 2)}
+                        </pre>
+                      </div>
+                    ))
+                  )}
+                </>
+              )}
             </ScrollArea>
           </TabsContent>
+
         </div>
       </Tabs>
     </div>
