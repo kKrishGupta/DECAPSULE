@@ -9,10 +9,11 @@ import { TimelineSlider } from "./components/TimelineSlider.jsx";
 import { BottomPanels } from "./components/BottomPanels.jsx";
 import { ProfileModal } from "./components/ProfileModal.jsx";
 
-// PAGE VIEWS
+// PAGE VIEWS (all .jsx)
 import { Dashboard } from "./components/views/Dashboard.jsx";
 import { Projects } from "./components/views/Projects.jsx";
 import { Tests } from "./components/views/Tests.jsx";
+import { DebugView } from "./components/views/DebugView.jsx";
 import { Settings } from "./components/views/Settings.jsx";
 
 // PDF Library
@@ -116,6 +117,71 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const totalSteps = 15;
+
+    // ----------- VIEW RENDERING SWITCH -----------
+  const renderMainContent = () => {
+    switch (activeView) {
+      case "dashboard":
+        return <Dashboard />;
+
+      case "projects":
+        return <Projects />;
+
+      case "tests":
+        return <Tests onRun={handleRun} isRunning={isRunning} />;
+
+      case "settings":
+        return <Settings />;
+
+      case "debug":
+      default:
+        return (
+          <>
+            <div className="flex-1 flex overflow-hidden">
+              <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
+                <CodeEditor
+                  selectedLine={selectedLine}
+                  onLineClick={setSelectedLine}
+                  currentStep={currentStep}
+                  language={language}
+                  isExecuted={isExecuted}
+                  codeContent={codeContent}
+                  onCodeChange={setCodeContent}
+                  activeFile={activeFile}
+                />
+              </div>
+
+              <div className="w-full lg:w-2/5 flex flex-col overflow-hidden">
+                <VisualizerPane
+                  activeTab={activeVisualizer}
+                  onTabChange={setActiveVisualizer}
+                  currentStep={currentStep}
+                  isExecuted={isExecuted}
+                  debugData={debugData}
+                />
+              </div>
+            </div>
+
+            <TimelineSlider
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              onStepChange={setCurrentStep}
+              isExecuted={isExecuted}
+            />
+
+            <BottomPanels
+              selectedLine={selectedLine}
+              currentStep={currentStep}
+              language={language}
+              isExecuted={isExecuted}
+              debugData={debugData}
+              isDebugging={isDebugging}
+            />
+          </>
+        );
+    }
+  };
+
 
   /* ------------------ Load Files ------------------ */
   const stored = loadFromStorage();
@@ -745,122 +811,137 @@ int main() {
   /* ============================ RENDER UI ============================== */
   /* ==================================================================== */
 
-  return (
-    <div className={`w-full h-screen flex flex-col ${theme === "dark" ? "dark" : ""}`}>
-      {/* ---------------- NAVBAR ---------------- */}
-      <Navbar
-        files={files}
-        activeFile={activeFile}
-        onFileSelect={setActiveFile}
-        onNewFile={createFile}
-        onRenameFile={(oldName, newName) => {
-          if (!files[oldName]) return;
-          const updated = { ...files };
-          updated[newName] = { ...updated[oldName], updatedAt: Date.now() };
-          delete updated[oldName];
-          setFiles(updated);
-          setActiveFile(newName);
-          setCodeContent(updated[newName].content);
-        }}
-        onDeleteFile={deleteFile}
-        onDuplicateFile={duplicateFile}
-        onSaveFile={saveFile}
-        onDownloadFile={downloadFile}
-        onDownloadPDF={downloadPDF}
-        onUploadFile={uploadFile}
-        onShareLink={generateShareLink}
-        onRun={handleRun}
-        onDebugClick={handleDebug}
-        isRunning={isRunning}
-        language={language}
-        onLanguageChange={setLanguage}
-        theme={theme}
-        onThemeToggle={() =>
-          setTheme((prev) => (prev === "dark" ? "light" : "dark"))
-        }
-        onProfileClick={() => setProfileOpen(true)}
-        onLogout={() => setIsLoggedIn(false)}
-        isLoggedIn={isLoggedIn}
-        currentUser={currentUser}
+return (
+  <div className={`w-full h-screen flex flex-col ${theme === "dark" ? "dark" : ""}`}>
+
+    {/* ---------------- NAVBAR ---------------- */}
+    <Navbar
+      files={files}
+      activeFile={activeFile}
+      onFileSelect={setActiveFile}
+      onNewFile={createFile}
+      onRenameFile={(oldName, newName) => {
+        if (!files[oldName]) return;
+        const updated = { ...files };
+        updated[newName] = { ...updated[oldName], updatedAt: Date.now() };
+        delete updated[oldName];
+        setFiles(updated);
+        setActiveFile(newName);
+        setCodeContent(updated[newName].content);
+      }}
+      onDeleteFile={deleteFile}
+      onDuplicateFile={duplicateFile}
+      onSaveFile={saveFile}
+      onDownloadFile={downloadFile}
+      onDownloadPDF={downloadPDF}
+      onUploadFile={uploadFile}
+      onShareLink={generateShareLink}
+      onRun={handleRun}
+      onDebugClick={handleDebug}
+      isRunning={isRunning}
+      language={language}
+      onLanguageChange={setLanguage}
+      theme={theme}
+      onThemeToggle={() =>
+        setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+      }
+      onProfileClick={() => setProfileOpen(true)}
+      onLogout={() => setIsLoggedIn(false)}
+      isLoggedIn={isLoggedIn}
+      currentUser={currentUser}
+    />
+
+    {/* ---------------- MAIN LAYOUT ---------------- */}
+    <div className="flex flex-1 overflow-hidden">
+
+      {/* -------- SIDEBAR -------- */}
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed((p) => !p)}
+        activeView={activeView}
+        onViewChange={setActiveView}
+         onDebugClick={() => setActiveView("debug")} // ✔ correct
+
       />
 
-      {/* ---------------- MAIN LAYOUT ---------------- */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* -------- SIDEBAR -------- */}
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed((p) => !p)}
-          activeView={activeView}
-          onViewChange={setActiveView}
-          onDebugClick={() => handleDebug(activeFile)}
-        />
+      {/* -------- CONTENT AREA -------- */}
+      <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
 
-        {/* -------- CONTENT AREA -------- */}
-        <div ref={containerRef} className="flex-1 flex flex-col overflow-hidden">
-          {/* Top half: Editor + Visualizer */}
-          <div className="flex flex-1 relative overflow-hidden">
-            {/* Editor */}
-            <div
-              className="h-full border-r border-border overflow-hidden"
-              style={{ width: `${editorPercent}%` }}
-            >
-              <CodeEditor
-                selectedLine={selectedLine}
-                onLineClick={setSelectedLine}
-                currentStep={currentStep}
-                language={language}
-                isExecuted={isExecuted}
-                codeContent={codeContent}
-                onCodeChange={setCodeContent}
-                activeFile={activeFile}
+        {activeView !== "debug" ? (
+          /* ========== NON-DEBUG VIEWS (Dashboard, Projects, Tests, Settings) ========== */
+          <main className="flex-1 overflow-hidden">
+            {renderMainContent()}
+          </main>
+        ) : (
+          /* ========== DEBUG VIEW UI ========== */
+          <>
+            <div className="flex flex-1 relative overflow-hidden">
+              
+              {/* Editor */}
+              <div
+                className="h-full border-r border-border overflow-hidden"
+                style={{ width: `${editorPercent}%` }}
+              >
+                <CodeEditor
+                  selectedLine={selectedLine}
+                  onLineClick={setSelectedLine}
+                  currentStep={currentStep}
+                  language={language}
+                  isExecuted={isExecuted}
+                  codeContent={codeContent}
+                  onCodeChange={setCodeContent}
+                  activeFile={activeFile}
+                />
+              </div>
+
+              {/* Drag bar */}
+              <div
+                className="w-1 bg-border cursor-col-resize hover:bg-primary"
+                onMouseDown={startDrag}
               />
+
+              {/* Visualizer */}
+              <div className="flex-1 overflow-hidden">
+                <VisualizerPane
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  currentStep={currentStep}
+                  isExecuted={isExecuted}
+                  debugData={debugData}
+                />
+              </div>
+
             </div>
 
-            {/* Drag bar */}
+            {/* Drag for Bottom Panel */}
             <div
-              className="w-1 bg-border cursor-col-resize hover:bg-primary"
-              onMouseDown={startDrag}
+              className="w-full h-1 bg-border cursor-row-resize hover:bg-primary"
+              onMouseDown={startBottomDrag}
             />
 
-            {/* Visualizer */}
-            <div className="flex-1 overflow-hidden">
-              <VisualizerPane
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                currentStep={currentStep}
+            {/* Bottom Panel */}
+            <div
+              className="w-full bg-card border-t border-border"
+              style={{ height: bottomPanelHeight }}
+            >
+              <BottomPanels
+                selectedLine={selectedLine}
+                outputText={outputText}
                 isExecuted={isExecuted}
                 debugData={debugData}
+                isDebugging={isDebugging}
               />
             </div>
-          </div>
+          </>
+        )}
 
-          {/* Drag for Bottom Panel */}
-          <div
-            className="w-full h-1 bg-border cursor-row-resize hover:bg-primary"
-            onMouseDown={startBottomDrag}
-          />
-
-          {/* Bottom Panel */}
-          <div
-            className="w-full bg-card border-t border-border"
-            style={{ height: bottomPanelHeight }}
-          >
-            <BottomPanels
-              selectedLine={selectedLine}
-              outputText={outputText}
-              isExecuted={isExecuted}
-              debugData={debugData}
-              isDebugging={isDebugging}
-            />
-          </div>
-        </div>
       </div>
-
-      {/* ---------------- PROFILE MODAL ---------------- */}
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
-  );
-}
+
+    {/* ---------------- PROFILE MODAL ---------------- */}
+    <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+  </div>
+)};
 
 export default App;
 
