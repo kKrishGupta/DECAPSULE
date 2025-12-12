@@ -182,6 +182,78 @@ function App() {
     }
   };
 
+  // Auto-login from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("dec_user");
+    if (saved) {
+      try {
+        const user = JSON.parse(saved);
+        setCurrentUser(user);
+        setIsLoggedIn(true);
+      } catch (err) {
+        console.error("Failed to load user from storage", err);
+      }
+    }
+  }, []);
+
+
+// login and signup 
+function extractUsername(email) {
+  if (!email) return "User";
+  return email.split("@")[0];  
+}
+
+// LOGIN
+const handleLogin = (email, password) => {
+  const username = extractUsername(email);
+
+  const user = {
+    name: username,
+    email,
+  };
+
+  setIsLoggedIn(true);
+  setCurrentUser(user);
+
+  // Save to localStorage 
+  localStorage.setItem("dec_user", JSON.stringify(user));
+
+  return true;
+};
+
+
+// SIGNUP
+const handleSignup = (name, email, pass, confirmPass) => {
+  if (pass !== confirmPass) {
+    alert("Passwords do not match");
+    return false;
+  }
+
+  const username = name || extractUsername(email);
+
+  const user = {
+    name: username,
+    email,
+  };
+
+  setIsLoggedIn(true);
+  setCurrentUser(user);
+
+  // Save to localStorage
+  localStorage.setItem("dec_user", JSON.stringify(user));
+
+  return true;
+};
+
+
+// LOGOUT
+const handleLogout = () => {
+  setIsLoggedIn(false);
+  setCurrentUser(null);
+  localStorage.removeItem("dec_user");
+};
+
+
 
   /* ------------------ Load Files ------------------ */
   const stored = loadFromStorage();
@@ -845,10 +917,10 @@ return (
       onThemeToggle={() =>
         setTheme((prev) => (prev === "dark" ? "light" : "dark"))
       }
-      onProfileClick={() => setProfileOpen(true)}
-      onLogout={() => setIsLoggedIn(false)}
-      isLoggedIn={isLoggedIn}
-      currentUser={currentUser}
+       onProfileClick={() => setProfileOpen(true)}
+  isLoggedIn={isLoggedIn}
+  currentUser={currentUser}
+  onLogout={handleLogout}
     />
 
     {/* ---------------- MAIN LAYOUT ---------------- */}
@@ -939,7 +1011,16 @@ return (
     </div>
 
     {/* ---------------- PROFILE MODAL ---------------- */}
-    <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+    <ProfileModal
+  open={profileOpen}
+  onOpenChange={setProfileOpen}
+  isLoggedIn={isLoggedIn}
+  currentUser={currentUser}
+  onLogin={handleLogin}
+  onSignup={handleSignup}
+  onLogout={handleLogout}
+/>
+
   </div>
 )};
 
