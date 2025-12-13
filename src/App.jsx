@@ -105,7 +105,7 @@ function App() {
   const [activeVisualizer, setActiveVisualizer] = useState("recursion");
   const [selectedLine, setSelectedLine] = useState(null);
 
-  const [language, setLanguage] = useState("javascript");
+  const [language, setLanguage] = useState("python");
   const [isRunning, setIsRunning] = useState(false);
   const [isExecuted, setIsExecuted] = useState(false); // run executed flag
   const [activeView, setActiveView] = useState("debug");
@@ -117,6 +117,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const totalSteps = 15;
+// const [debugData, setDebugData] = useState({});
 
     // ----------- VIEW RENDERING SWITCH -----------
   const renderMainContent = () => {
@@ -364,18 +365,20 @@ const handleLogout = () => {
   }, [activeFile, files]);
 
   /* ------------------ Auto Detect Language ------------------ */
-  useEffect(() => {
-    const ext = (activeFile || "").split(".").pop();
-    setLanguage(
-      ext === "py"
-        ? "python"
-        : ["cpp", "c", "cc", "cxx", "c++"].includes(ext)
-        ? "cpp"
-        : ext === "java"
-        ? "java"
-        : "javascript"
-    );
-  }, [activeFile]);
+useEffect(() => {
+  const ext = (activeFile || "").split(".").pop();
+
+  if (ext === "py") {
+    setLanguage("python");
+  }
+  // else if (["cpp", "c", "cc"].includes(ext)) {
+  //   setLanguage("cpp");
+  // }
+  // else if (ext === "java") {
+  //   setLanguage("java");
+  // }
+}, [activeFile]);
+
 
   /* ------------------ Auto Save (Live Update) ------------------ */
   useEffect(() => {
@@ -388,48 +391,66 @@ const handleLogout = () => {
 
   /* ------------------ FILE OPERATIONS ------------------ */
   const STARTER_TEMPLATES = {
-    js: `function main() { console.log("Hello JavaScript!"); }
-main();`,
+  // js: `function main() {
+  //   console.log("Hello JavaScript!");
+  // }
+  // main();`,
 
-    py: `def main():
+  py: `def main():
     print("Hello Python!")
+
 if __name__ == "__main__":
     main()`,
 
-    cpp: `#include <bits/stdc++.h>
-using namespace std;
-int main() {
-    cout << "Hello C++!";
-    return 0;
-}`,
+  // cpp: `#include <bits/stdc++.h>
+  // using namespace std;
+  // int main() {
+  //     cout << "Hello C++!";
+  //     return 0;
+  // }`,
 
-    java: `public class Main {
-  public static void main(String[] args) {
-    System.out.println("Hello Java!");
-  }
-}`,
-  };
+  // java: `public class Main {
+  //   public static void main(String[] args) {
+  //     System.out.println("Hello Java!");
+  //   }
+  // }`,
+};
+
 
   const createFile = (name) => {
-    if (!name.trim()) return;
-    const ext = name.split(".").pop();
-    const starter =
-      ext === "py"
-        ? STARTER_TEMPLATES.py
-        : ["cpp", "c", "cc", "cxx"].includes(ext)
-        ? STARTER_TEMPLATES.cpp
-        : ext === "java"
-        ? STARTER_TEMPLATES.java
-        : STARTER_TEMPLATES.js;
+  if (!name.trim()) return;
 
-    setFiles((prev) => ({
-      ...prev,
-      [name]: { content: starter, createdAt: Date.now(), updatedAt: Date.now() },
-    }));
+  const ext = name.split(".").pop();
 
-    setActiveFile(name);
-    setCodeContent(starter);
-  };
+  const starter =
+    ext === "py"
+      ? STARTER_TEMPLATES.py
+      : null
+      // : ["cpp", "c", "cc", "cxx"].includes(ext)
+      // ? STARTER_TEMPLATES.cpp
+      // : ext === "java"
+      // ? STARTER_TEMPLATES.java
+      // : STARTER_TEMPLATES.js;
+
+  // ❌ Block non-python files for now
+  if (!starter) {
+    alert("Only Python (.py) files are supported right now.");
+    return;
+  }
+
+  setFiles((prev) => ({
+    ...prev,
+    [name]: {
+      content: starter,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  }));
+
+  setActiveFile(name);
+  setCodeContent(starter);
+};
+
 
   const deleteFile = (name) => {
     if (Object.keys(files).length === 1)
@@ -628,7 +649,7 @@ int main() {
   /* ========================== DEBUG MODE (SSE) ========================= */
   /* ==================================================================== */
 
-  const [debugData, setDebugData] = useState(null);
+  const [debugData, setDebugData] = useState({});
   const [isDebugging, setIsDebugging] = useState(false);
 
   // we keep the SSE connection here
@@ -828,116 +849,116 @@ int main() {
   /* ------------------------ DEBUG HANDLER -------------------------- */
   /* ---------------------------------------------------------------- */
 const handleDebug = async (fileName, input = "") => {
-  const codeFromFiles = files?.[fileName]?.content;
-  const codeToSend =
-    typeof codeFromFiles === "string" && codeFromFiles.length > 0
-      ? codeFromFiles
-      : codeContent;
+  const code =
+    files?.[fileName]?.content || codeContent;
 
-  if (!codeToSend) {
+  if (!code) {
     alert("No code to debug!");
     return;
   }
 
   setIsDebugging(true);
-  setDebugData(null);
   setIsExecuted(false);
+  setDebugData({});
   setOutputText("");
 
-  try {
-    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  const base =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
-    const res = await fetch(`${base}/process_stream/stream`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: codeToSend, input }),
-    });
+  const res = await fetch(`${base}/process_stream/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, input }),
+  });
 
-    if (!res.body) {
-      throw new Error("Streaming not supported by server.");
-    }
+  if (!res.body) {
+    alert("SSE not supported");
+    return;
+  }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
+  let buffer = "";
 
-      const chunk = decoder.decode(value);
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
 
-      // Split multi-events
-      const events = chunk.split("\n\n").filter(Boolean);
+    buffer += decoder.decode(value, { stream: true });
 
-      for (const evt of events) {
-        if (!evt.startsWith("event:")) continue;
+    const events = buffer.split("\n\n");
+    buffer = events.pop(); // keep partial event
 
-        const dataLine = evt.split("data:")[1];
-        if (!dataLine) continue;
+    for (const evt of events) {
+      const dataLine = evt
+        .split("\n")
+        .find(line => line.startsWith("data:"));
 
-        let parsed;
-        try {
-          parsed = JSON.parse(dataLine.trim());
-        } catch (e) {
-          console.warn("Non-JSON SSE chunk:", evt);
-          setOutputText((p) => p + "\n" + evt);
-          continue;
-        }
+      if (!dataLine) continue;
 
-        const stage = parsed.stage;
-        const payload = parsed.payload || {};
-
-        switch (stage) {
-          case "classification":
-            setDebugData((p) => mergeDebug(p, { classification: payload }));
-            break;
-
-          case "runtime":
-            setDebugData((p) => mergeDebug(p, { runtime: payload }));
-            if (payload.stdout) setOutputText((p) => p + payload.stdout);
-            if (payload.stderr) setOutputText((p) => p + payload.stderr);
-            break;
-
-          case "analysis":
-            setDebugData((p) => mergeDebug(p, { analysis: payload }));
-            break;
-
-          case "recursion":
-            setDebugData((p) => mergeDebug(p, { recursion_tree: payload }));
-            break;
-
-          case "dp_analysis":
-          case "dp_simulation":
-            setDebugData((p) => mergeDebug(p, { dp: payload }));
-            break;
-
-          case "issues":
-            setDebugData((p) => mergeDebug(p, { issues: payload }));
-            break;
-
-          case "explanation":
-            setDebugData((p) => mergeDebug(p, { explanation: payload }));
-            break;
-
-          case "done":
-            setDebugData((p) => mergeDebug(p, payload));
-            setIsExecuted(true);
-            setIsDebugging(false);
-            break;
-
-          default:
-            console.log("Unknown event:", parsed);
-            break;
-        }
+      let parsed;
+      try {
+        parsed = JSON.parse(
+          dataLine.replace("data:", "").trim()
+        );
+      } catch {
+        continue;
       }
+
+      handleDebugStage(parsed);
     }
-  } catch (err) {
-    console.error("Debug stream error:", err);
-    alert("Failed to start debug session.");
   }
 };
 
+// handleDebugStage
+const handleDebugStage = ({ stage, payload }) => {
+  setDebugData(prev => {
+    const next = { ...prev };
 
+    switch (stage) {
+
+      case "classification":
+        next.classification = payload;
+        break;
+
+      case "runtime":
+        next.runtime = payload;
+        if (payload.stdout) setOutputText(p => p + payload.stdout);
+        if (payload.stderr) setOutputText(p => p + payload.stderr);
+        break;
+
+      case "recursion":
+        next.recursion_tree = payload.tree;
+        next.recursion_events = payload.events;
+        break;
+
+      case "dp":
+        next.dp = payload;
+        break;
+
+      case "dp_skipped":
+        next.dp = null;
+        break;
+
+      case "issues":
+        next.issues = payload;
+        break;
+
+      case "explanation":
+        next.explanation = payload;
+        break;
+
+      case "done":
+        Object.assign(next, payload);
+        setIsExecuted(true);
+        setIsDebugging(false);
+        break;
+    }
+
+    return next;
+  });
+};
 
 
   /* ==================================================================== */
@@ -958,6 +979,7 @@ return (
       onFileSelect={setActiveFile}
       onNewFile={createFile}
       codeContent={codeContent}
+      isDebugging={isDebugging}   // 🔥 ADD THIS
       onRenameFile={(oldName, newName) => {
         if (!files[oldName]) return;
         const updated = { ...files };

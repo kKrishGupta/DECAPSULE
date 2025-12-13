@@ -31,12 +31,39 @@ import { Input } from "@/components/ui/input";
 
 import { AutoFixModal } from "@/components/AutoFixModal";
 
+// pdffff f
+import { jsPDF } from "jspdf";
+
+function savePDFAs(filename, content) {
+  const pdf = new jsPDF();
+
+  const lines = pdf.splitTextToSize(content, 180);
+  pdf.text(lines, 10, 10);
+
+  const blob = pdf.output("blob");
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = filename.endsWith(".pdf") ? filename : filename + ".pdf";
+
+  document.body.appendChild(a);
+  a.click(); // <-- Windows File Explorer opens here
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+}
+
+
 /* ---------------- Language Config ---------------- */
 const languageConfig = {
-  javascript: { label: "JavaScript", extension: ".js", icon: "🟨" },
+  // javascript: { label: "JavaScript", extension: ".js", icon: "🟨" },
+
   python: { label: "Python", extension: ".py", icon: "🐍" },
-  cpp: { label: "C++", extension: ".cpp", icon: "⚙️" },
-  java: { label: "Java", extension: ".java", icon: "☕" },
+
+  // cpp: { label: "C++", extension: ".cpp", icon: "⚙️" },
+  // java: { label: "Java", extension: ".java", icon: "☕" },
 };
 
 /* -------------- FILE EXTENSION → LANGUAGE ICON -------------- */
@@ -44,14 +71,31 @@ const getFileIcon = (fileName) => {
   if (!fileName) return "📄";
   const ext = fileName.split(".").pop().toLowerCase();
 
-  if (ext === "js") return "🟨";
+  // if (ext === "js") return "🟨";
   if (ext === "py") return "🐍";
-  if (["cpp", "cc", "cxx", "c++", "c"].includes(ext)) return "⚙️";
-  if (ext === "java") return "☕";
+  // if (["cpp", "cc", "cxx", "c++", "c"].includes(ext)) return "⚙️";
+  // if (ext === "java") return "☕";
 
   return "📄";
 };
 
+
+// Add This Function
+function saveFileAs(filename, content) {
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename; // forces Save As dialog
+  a.style.display = "none";
+
+  document.body.appendChild(a);
+  a.click(); // triggers save dialog
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+}
 export function Navbar({
   files = {},
   activeFile,
@@ -67,6 +111,7 @@ export function Navbar({
   onShareLink,
   codeContent, 
   onRun,
+  isDebugging,   // ✅ ADD THIS
   onDebugClick,
   isRunning,
   language,
@@ -295,7 +340,7 @@ const submitDebug = () => {
                       if (e.key === "Escape") handleCloseCreate();
                     }}
                     className="w-full px-2 py-1 bg-muted border border-border rounded outline-none"
-                    placeholder="main.cpp"
+                    placeholder="main.py"
                   />
 
                   <div className="flex gap-2 mt-2">
@@ -363,13 +408,24 @@ const submitDebug = () => {
               <DropdownMenuSeparator />
 
               {/* SAVE */}
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                onClick={() => onSaveFile?.()}
-                className="px-4 py-2 cursor-pointer"
-              >
-                💾 Save
-              </DropdownMenuItem>
+  <DropdownMenuItem
+  onSelect={(e) => e.preventDefault()}
+  onClick={() => {
+    if (!activeFile) return alert("No file selected!");
+
+    const file = files[activeFile];
+    if (!file) return alert("File not found!");
+
+    savePDFAs(activeFile.replace(/\.\w+$/, "") + ".pdf", file.content);
+
+    alert("File saved as PDF!");
+  }}
+  className="px-4 py-2 cursor-pointer"
+>
+  💾 Save as PDF
+</DropdownMenuItem>
+
+
 
               {/* DOWNLOAD */}
               <DropdownMenuItem
@@ -451,9 +507,23 @@ const submitDebug = () => {
           </Button>
 
           {/* DEBUG */}
-          <Button className="bg-amber-600 text-white" onClick={openDebugModal}>
-            <Bug className="w-4 h-4 mr-2" /> Debug
-          </Button>
+          <Button
+  disabled={isDebugging}
+  className={`text-white flex items-center gap-2 
+    ${isDebugging ? "bg-amber-700/60 cursor-not-allowed" : "bg-amber-600"}
+  `}
+  onClick={submitDebug}
+>
+  {isDebugging ? (
+    <>
+      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+      Debugging…
+    </>
+  ) : (
+    "Debug"
+  )}
+</Button>
+
 
           {/* AUTO FIX */}
           <Button
