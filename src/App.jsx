@@ -19,6 +19,7 @@ import { Settings } from "./components/views/Settings.jsx";
 // PDF Library
 import jsPDF from "jspdf";
 
+
 /* ------------------ DEFAULT SAMPLE FILES ------------------ */
 const DEFAULT_FILES = {
   "fibonacci.js": {
@@ -117,7 +118,42 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const totalSteps = 15;
-// const [debugData, setDebugData] = useState({});
+// /****************************************************** */
+function buildRecursionTreeFromEvents(events = []) {
+  if (!events.length) return null;
+
+  const stack = [];
+  let root = null;
+
+  for (const e of events) {
+    if (e.event === "call") {
+      const node = {
+        func: e.func_name,
+        args: e.locals || {},
+        children: [],
+        return: null,
+      };
+
+      if (stack.length > 0) {
+        stack[stack.length - 1].children.push(node);
+      } else {
+        root = node;
+      }
+
+      stack.push(node);
+    }
+
+    if (e.event === "return") {
+      const node = stack.pop();
+      if (node) {
+        node.return = e.return_value;
+      }
+    }
+  }
+
+  return root;
+}
+// ******************************************************************************
 
     // ----------- VIEW RENDERING SWITCH -----------
   const renderMainContent = () => {
@@ -696,145 +732,6 @@ if __name__ == "__main__":
     }
   };
 
-  // start SSE streaming after POST
-  const startEventStream = (sessionId = null) => {
-    if (streamRef.current) {
-      try { streamRef.current.close(); } catch {}
-      streamRef.current = null;
-    }
-
-    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-    let url = `${base}/process_stream/stream`;
-
-    // if server returned a session ID, attach it
-    if (sessionId) {
-      url += `?session_id=${encodeURIComponent(sessionId)}`;
-    }
-
-    const es = new EventSource(url);
-    streamRef.current = es;
-
-    es.addEventListener("open", () => {
-      console.log("SSE connection opened:", url);
-    });
-
-    es.addEventListener("error", (ev) => {
-      console.error("SSE error:", ev);
-    });
-
-    es.addEventListener("message", (ev) => {
-      const parsed = parseSSEData(ev.data);
-
-      if (!parsed || typeof parsed !== "object") {
-        setOutputText((prev) =>
-          prev ? prev + "\n" + ev.data : ev.data
-        );
-        return;
-      }
-
-      const stage = parsed.stage;
-      const payload = parsed.payload ?? {};
-
-      switch (stage) {
-        case "classification":
-          setDebugData((prev) => mergeDebug(prev, { classification: payload }));
-          break;
-
-        case "runtime_start":
-          setDebugData((prev) =>
-            mergeDebug(prev, { runtime: { started: true, meta: payload } })
-          );
-          break;
-
-        case "runtime":
-          setDebugData((prev) =>
-            mergeDebug(prev, {
-              runtime: { ...(prev?.runtime || {}), ...payload },
-            })
-          );
-
-          setOutputText((prev) => {
-            let next = prev || "";
-            if (payload.stdout) {
-              next += (next ? "\n" : "") + payload.stdout.replace(/\r\n/g, "\n");
-            }
-            if (payload.stderr) {
-              next +=
-                (next ? "\n" : "") +
-                "Error:\n" +
-                payload.stderr.replace(/\r\n/g, "\n");
-            }
-            return next;
-          });
-          break;
-
-        case "analysis":
-          setDebugData((prev) => mergeDebug(prev, { analysis: payload }));
-          break;
-
-        case "dp":
-        case "dp_skipped":
-          setDebugData((prev) => mergeDebug(prev, { dp: payload }));
-          break;
-
-        case "recursion_tree":
-          setDebugData((prev) => mergeDebug(prev, { recursion_tree: payload }));
-          break;
-
-        case "issues":
-          setDebugData((prev) => mergeDebug(prev, { issues: payload || [] }));
-          break;
-
-        case "explain_start":
-          setDebugData((prev) =>
-            mergeDebug(prev, { explanation_in_progress: true })
-          );
-          break;
-
-        case "explanation":
-          setDebugData((prev) =>
-            mergeDebug(prev, { explanation: payload })
-          );
-          break;
-
-        case "done":
-          // merge everything final
-          setDebugData((prev) => mergeDebug(prev, payload || {}));
-          setIsExecuted(true);
-          setIsDebugging(false);
-
-          // handle final runtime output
-          if (payload.runtime) {
-            setOutputText((prev) => {
-              let next = prev || "";
-              if (payload.runtime.stdout) {
-                next +=
-                  (next ? "\n" : "") +
-                  payload.runtime.stdout.replace(/\r\n/g, "\n");
-              }
-              if (payload.runtime.stderr) {
-                next +=
-                  (next ? "\n" : "") +
-                  "Error:\n" +
-                  payload.runtime.stderr.replace(/\r\n/g, "\n");
-              }
-              return next;
-            });
-          }
-
-          try { es.close(); } catch {}
-          streamRef.current = null;
-          break;
-
-        default:
-          setDebugData((prev) =>
-            mergeDebug(prev, { [stage || "unknown"]: payload })
-          );
-          break;
-      }
-    });
-  };
-
   // cleanup on app unload
   useEffect(() => {
     return () => {
@@ -848,10 +745,9 @@ if __name__ == "__main__":
   /* ---------------------------------------------------------------- */
   /* ------------------------ DEBUG HANDLER -------------------------- */
   /* ---------------------------------------------------------------- */
-const handleDebug = async (fileName, input = "") => {
-  const code =
-    files?.[fileName]?.content || codeContent;
 
+const handleDebug = async (fileName, input = "") => {
+  const code = files?.[fileName]?.content || codeContent;
   if (!code) {
     alert("No code to debug!");
     return;
@@ -863,7 +759,7 @@ const handleDebug = async (fileName, input = "") => {
   setOutputText("");
 
   const base =
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
   const res = await fetch(`${base}/process_stream/stream`, {
     method: "POST",
@@ -872,13 +768,13 @@ const handleDebug = async (fileName, input = "") => {
   });
 
   if (!res.body) {
-    alert("SSE not supported");
+    alert("Streaming not supported");
+    setIsDebugging(false);
     return;
   }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
-
   let buffer = "";
 
   while (true) {
@@ -886,78 +782,133 @@ const handleDebug = async (fileName, input = "") => {
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
-
     const events = buffer.split("\n\n");
-    buffer = events.pop(); // keep partial event
+    buffer = events.pop();
 
     for (const evt of events) {
-      const dataLine = evt
-        .split("\n")
-        .find(line => line.startsWith("data:"));
-
-      if (!dataLine) continue;
+      const line = evt.split("\n").find(l => l.startsWith("data:"));
+      if (!line) continue;
 
       let parsed;
       try {
-        parsed = JSON.parse(
-          dataLine.replace("data:", "").trim()
-        );
+        parsed = JSON.parse(line.replace("data:", "").trim());
       } catch {
         continue;
       }
 
-      handleDebugStage(parsed);
+      const { stage, payload } = parsed;
+
+      // 🔥 DEBUG CONSOLE
+      console.group(`🟢 ${stage}`);
+      console.log(payload);
+      console.groupEnd();
+
+      setDebugData(prev => {
+        const next = { ...prev };
+
+        switch (stage) {
+          case "classification":
+            next.classification = payload;
+            break;
+
+            case "recursion": {
+                const events = payload?.events || [];
+
+                next.recursion = {
+                  events,
+                  tree:
+                    payload.tree ||
+                    buildRecursionTreeFromEvents(events),
+                };
+                break;
+              }
+
+
+          // 🔥🔥🔥 MAIN FIX IS HERE 🔥🔥🔥
+        case "recursion_error": {
+  const raw = payload?.raw_stdout || "";
+  const jsonStart = raw.indexOf("{");
+
+  if (jsonStart === -1) break;
+
+  const recovered = JSON.parse(raw.slice(jsonStart));
+  const events = recovered.events || [];
+
+  // 🔥 FRONTEND FIX: ROOT CALL INJECT
+  // input n frontend se pata hota hai
+  const inputMatch = code.match(/factorial\((\d+)\)/);
+  const rootN = inputMatch ? inputMatch[1] : null;
+
+  if (rootN && events.length > 0) {
+    const firstCallN = events[0]?.locals?.n;
+
+    // agar root missing hai
+    if (String(rootN) !== String(firstCallN)) {
+      events.unshift({
+        event: "call",
+        func_name: "factorial",
+        locals: { n: String(rootN) },
+      });
+
+      events.push({
+        event: "return",
+        func_name: "factorial",
+        return_value: raw.split("\n")[0], // final stdout
+        locals: { n: String(rootN) },
+      });
     }
   }
-};
 
-// handleDebugStage
-const handleDebugStage = ({ stage, payload }) => {
-  setDebugData(prev => {
-    const next = { ...prev };
+  next.recursion = {
+    events,
+    tree: buildRecursionTreeFromEvents(events),
+  };
 
-    switch (stage) {
+  break;
+}
 
-      case "classification":
-        next.classification = payload;
-        break;
 
-      case "runtime":
-        next.runtime = payload;
-        if (payload.stdout) setOutputText(p => p + payload.stdout);
-        if (payload.stderr) setOutputText(p => p + payload.stderr);
-        break;
+          case "dp_start":
+            next.dp = { table: null, snapshots: [] };
+            break;
 
-      case "recursion":
-        next.recursion_tree = payload.tree;
-        next.recursion_events = payload.events;
-        break;
+         case "dp_step": {
+              const rawTable = payload.table || {};
 
-      case "dp":
-        next.dp = payload;
-        break;
+              const rows = Object.entries(rawTable).map(
+                ([k, v]) => ({
+                  index: Number(k),
+                  value: v,
+                })
+              );
 
-      case "dp_skipped":
-        next.dp = null;
-        break;
+              next.dp = {
+                memo: payload.memo_name,
+                table: rows,
+              };
 
-      case "issues":
-        next.issues = payload;
-        break;
+              break;
+            }
 
-      case "explanation":
-        next.explanation = payload;
-        break;
+          case "issues":
+            next.issues = payload || [];
+            break;
 
-      case "done":
-        Object.assign(next, payload);
-        setIsExecuted(true);
-        setIsDebugging(false);
-        break;
+          case "explanation":
+            next.explanation = payload;
+            break;
+
+          case "done":
+            setIsExecuted(true);
+            setIsDebugging(false);
+            // break;
+            return prev; // ⛔ DO NOT TOUCH debugData
+        }
+
+        return next;
+      });
     }
-
-    return next;
-  });
+  }
 };
 
 

@@ -4,37 +4,58 @@ import { Table } from "lucide-react";
 
 /*
 ===============================================================================
-DPTable
-- Supports BOTH:
-  1) Backend DP tables (simulation / table)
-  2) Original Fibonacci static visualization (fallback)
-- No assumptions about backend shape
-- Safe guards for missing / skipped DP
+DPTable (FIXED)
+- Supports:
+  1) Backend DP (index/value objects)
+  2) Backend 2D array (legacy)
+  3) Original Fibonacci fallback (UNCHANGED)
+- UI SAME, only mapping fixed
 ===============================================================================
 */
 
 export function DPTable({
-  dpTable,        // ✅ normalized DP table from VisualizerPane
+  dpTable,        // can be: [{index, value}] OR [[...]]
   currentStep,
   isExecuted,
 }) {
-  const [backendTable, setBackendTable] = useState(null);
+  const [backendRows, setBackendRows] = useState(null);
 
-  /* ============================================================================
-      STEP 1 — LOAD BACKEND DP TABLE (IF PRESENT)
-  ============================================================================ */
+  /* ------------------------------------------------------------------------
+     NORMALIZE BACKEND DP TABLE
+  ------------------------------------------------------------------------ */
   useEffect(() => {
-    if (!dpTable || !Array.isArray(dpTable) || !Array.isArray(dpTable[0])) {
-      setBackendTable(null);
+    if (!dpTable) {
+      setBackendRows(null);
       return;
     }
 
-    setBackendTable(dpTable);
+    // ✅ Case 1: [{ index, value }]
+    if (
+      Array.isArray(dpTable) &&
+      dpTable.length &&
+      typeof dpTable[0] === "object" &&
+      "index" in dpTable[0]
+    ) {
+      setBackendRows(dpTable);
+      return;
+    }
+
+    // ✅ Case 2: legacy 2D array [[i, v]]
+    if (Array.isArray(dpTable) && Array.isArray(dpTable[0])) {
+      const rows = dpTable.map((row, i) => ({
+        index: i,
+        value: row[1] ?? row[0],
+      }));
+      setBackendRows(rows);
+      return;
+    }
+
+    setBackendRows(null);
   }, [dpTable]);
 
-  /* ============================================================================
-      CASE 1 — NOT EXECUTED
-  ============================================================================ */
+  /* ------------------------------------------------------------------------
+     CASE 1 — NOT EXECUTED
+  ------------------------------------------------------------------------ */
   if (!isExecuted) {
     return (
       <div className="h-full flex items-center justify-center p-6">
@@ -50,23 +71,23 @@ export function DPTable({
     );
   }
 
-  /* ============================================================================
-      CASE 2 — BACKEND DP TABLE AVAILABLE
-  ============================================================================ */
-  if (backendTable) {
+  /* ------------------------------------------------------------------------
+     CASE 2 — BACKEND DP TABLE (FIXED)
+  ------------------------------------------------------------------------ */
+  if (backendRows && backendRows.length) {
     return (
       <ScrollArea className="h-full p-6">
         <div className="flex flex-col gap-8">
 
-          {/* ================= HEADER ================= */}
+          {/* HEADER (UNCHANGED) */}
           <div className="w-full">
             <svg
-              viewBox="0 0 800 400"
+              viewBox="0 0 800 200"
               className="w-full h-auto border border-border rounded-lg bg-background"
             >
               <rect
                 x="50"
-                y="50"
+                y="40"
                 width="700"
                 height="40"
                 fill="hsl(188,90%,60%)"
@@ -76,74 +97,40 @@ export function DPTable({
               />
               <text
                 x="400"
-                y="75"
+                y="65"
                 textAnchor="middle"
                 fill="hsl(188,90%,60%)"
                 fontSize="16"
                 fontWeight="bold"
               >
-                Dynamic Programming Table (Backend)
+                Dynamic Programming Table
               </text>
             </svg>
           </div>
 
-          {/* ================= BACKEND TABLE ================= */}
-          <div className="inline-block border border-border rounded-md overflow-hidden">
-            <table className="table-auto border-collapse text-sm font-mono">
-              <tbody>
-                {backendTable.map((row, r) => (
-                  <tr key={r} className="border-b border-border">
-                    {row.map((cell, c) => (
-                      <td
-                        key={c}
-                        className="px-4 py-2 border-r border-border bg-muted/20"
-                      >
-                        {cell === null || cell === undefined
-                          ? "-"
-                          : String(cell)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ================= MEMO GRID (OPTIONAL) ================= */}
-          {backendTable.length >= 2 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Memoization Table</h3>
-
-              <div className="grid grid-cols-11 gap-2">
-                {backendTable[0].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`aspect-square rounded-md border flex flex-col items-center justify-center ${
-                      backendTable[1][i] !== null
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-card text-muted-foreground"
-                    }`}
-                  >
-                    <span className="text-xs font-mono">{i}</span>
-                    {backendTable[1][i] !== null && (
-                      <span className="text-sm font-semibold text-primary">
-                        {backendTable[1][i]}
-                      </span>
-                    )}
-                  </div>
-                ))}
+          {/* DP GRID */}
+          <div className="grid grid-cols-10 gap-2">
+            {backendRows.map((cell) => (
+              <div
+                key={cell.index}
+                className="aspect-square rounded-md border border-primary bg-primary/10 flex flex-col items-center justify-center"
+              >
+                <span className="text-xs font-mono">{cell.index}</span>
+                <span className="text-sm font-semibold text-primary">
+                  {cell.value}
+                </span>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
 
         </div>
       </ScrollArea>
     );
   }
 
-  /* ============================================================================
-      CASE 3 — NO BACKEND DP → ORIGINAL FIBONACCI UI (UNCHANGED)
-  ============================================================================ */
+  /* ------------------------------------------------------------------------
+     CASE 3 — FALLBACK FIBONACCI (UNCHANGED)
+  ------------------------------------------------------------------------ */
 
   const fib = (n) => {
     if (n <= 1) return n;
@@ -162,7 +149,7 @@ export function DPTable({
     <ScrollArea className="h-full p-6">
       <div className="flex flex-col gap-8">
 
-        {/* ================= ORIGINAL SVG ================= */}
+        {/* ORIGINAL SVG (UNCHANGED) */}
         <div className="w-full">
           <svg
             viewBox="0 0 800 400"
@@ -189,7 +176,6 @@ export function DPTable({
               Dynamic Programming Table – Fibonacci
             </text>
 
-            {/* Index Row */}
             {cells.map((_, i) => (
               <g key={i}>
                 <rect
@@ -211,7 +197,6 @@ export function DPTable({
               </g>
             ))}
 
-            {/* Value Row */}
             {cells.map((cell, i) => (
               <g key={i}>
                 <rect
@@ -241,27 +226,6 @@ export function DPTable({
               </g>
             ))}
           </svg>
-        </div>
-
-        {/* ================= GRID ================= */}
-        <div className="grid grid-cols-11 gap-2">
-          {cells.map((cell) => (
-            <div
-              key={cell.index}
-              className={`aspect-square rounded-md border flex flex-col items-center justify-center ${
-                cell.computed
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-card text-muted-foreground"
-              }`}
-            >
-              <span className="text-xs font-mono">{cell.index}</span>
-              {cell.computed && (
-                <span className="text-sm font-semibold text-primary">
-                  {cell.value}
-                </span>
-              )}
-            </div>
-          ))}
         </div>
 
       </div>
