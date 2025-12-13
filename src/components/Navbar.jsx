@@ -65,7 +65,7 @@ export function Navbar({
   onDownloadPDF,
   onUploadFile,
   onShareLink,
-
+  codeContent, 
   onRun,
   onDebugClick,
   isRunning,
@@ -99,10 +99,14 @@ export function Navbar({
   const [debugInput, setDebugInput] = React.useState("");
 
   const openDebugModal = () => setShowDebugModal(true);
-  const submitDebug = () => {
-    setShowDebugModal(false);
-    onDebugClick(activeFile, debugInput);
-  };
+const submitDebug = () => {
+  setShowDebugModal(false);
+
+  onDebugClick(activeFile, debugInput);
+   // calls App.jsx handler
+};
+
+
 
   /* ---------------- AUTO FIX MODAL ---------------- */
   const [autoFixOpen, setAutoFixOpen] = React.useState(false);

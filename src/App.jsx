@@ -827,53 +827,118 @@ int main() {
   /* ---------------------------------------------------------------- */
   /* ------------------------ DEBUG HANDLER -------------------------- */
   /* ---------------------------------------------------------------- */
+const handleDebug = async (fileName, input = "") => {
+  const codeFromFiles = files?.[fileName]?.content;
+  const codeToSend =
+    typeof codeFromFiles === "string" && codeFromFiles.length > 0
+      ? codeFromFiles
+      : codeContent;
 
-  const handleDebug = async (fileName, input = "") => {
-    const codeFromFiles = files?.[fileName]?.content;
-    const codeToSend =
-      typeof codeFromFiles === "string" && codeFromFiles.length > 0
-        ? codeFromFiles
-        : codeContent;
+  if (!codeToSend) {
+    alert("No code to debug!");
+    return;
+  }
 
-    if (!codeToSend) {
-      alert("No code to debug!");
-      return;
+  setIsDebugging(true);
+  setDebugData(null);
+  setIsExecuted(false);
+  setOutputText("");
+
+  try {
+    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+    const res = await fetch(`${base}/process_stream/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: codeToSend, input }),
+    });
+
+    if (!res.body) {
+      throw new Error("Streaming not supported by server.");
     }
 
-    setIsDebugging(true);
-    setDebugData(null);
-    setIsExecuted(false);
-    setOutputText("");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
 
-    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
 
-    try {
-      // send the code first
-      const res = await fetch(`${base}/process_stream/stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: codeToSend,
-          language,
-          filename: fileName,
-        }),
-      });
+      const chunk = decoder.decode(value);
 
-      let sessionId = null;
+      // Split multi-events
+      const events = chunk.split("\n\n").filter(Boolean);
 
-      if (res.ok) {
-        const json = await res.json();
-        sessionId = json.session_id || null;
+      for (const evt of events) {
+        if (!evt.startsWith("event:")) continue;
+
+        const dataLine = evt.split("data:")[1];
+        if (!dataLine) continue;
+
+        let parsed;
+        try {
+          parsed = JSON.parse(dataLine.trim());
+        } catch (e) {
+          console.warn("Non-JSON SSE chunk:", evt);
+          setOutputText((p) => p + "\n" + evt);
+          continue;
+        }
+
+        const stage = parsed.stage;
+        const payload = parsed.payload || {};
+
+        switch (stage) {
+          case "classification":
+            setDebugData((p) => mergeDebug(p, { classification: payload }));
+            break;
+
+          case "runtime":
+            setDebugData((p) => mergeDebug(p, { runtime: payload }));
+            if (payload.stdout) setOutputText((p) => p + payload.stdout);
+            if (payload.stderr) setOutputText((p) => p + payload.stderr);
+            break;
+
+          case "analysis":
+            setDebugData((p) => mergeDebug(p, { analysis: payload }));
+            break;
+
+          case "recursion":
+            setDebugData((p) => mergeDebug(p, { recursion_tree: payload }));
+            break;
+
+          case "dp_analysis":
+          case "dp_simulation":
+            setDebugData((p) => mergeDebug(p, { dp: payload }));
+            break;
+
+          case "issues":
+            setDebugData((p) => mergeDebug(p, { issues: payload }));
+            break;
+
+          case "explanation":
+            setDebugData((p) => mergeDebug(p, { explanation: payload }));
+            break;
+
+          case "done":
+            setDebugData((p) => mergeDebug(p, payload));
+            setIsExecuted(true);
+            setIsDebugging(false);
+            break;
+
+          default:
+            console.log("Unknown event:", parsed);
+            break;
+        }
       }
-
-      // now start SSE
-      startEventStream(sessionId);
-    } catch (err) {
-      console.error("Debug POST error:", err);
-      setIsDebugging(false);
-      alert("Failed to start debug session.");
     }
-  };
+  } catch (err) {
+    console.error("Debug stream error:", err);
+    alert("Failed to start debug session.");
+  }
+};
+
+
+
 
   /* ==================================================================== */
   /* =================== END OF SSE DEBUG SYSTEM ======================== */
@@ -892,6 +957,7 @@ return (
       activeFile={activeFile}
       onFileSelect={setActiveFile}
       onNewFile={createFile}
+      codeContent={codeContent}
       onRenameFile={(oldName, newName) => {
         if (!files[oldName]) return;
         const updated = { ...files };
