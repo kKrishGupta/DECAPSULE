@@ -1,9 +1,9 @@
-# 🚀 DECAPSULE
+# 🚀 DECAPSULE (Frontend)
 ### AI-Powered Code Debugging & Algorithm Visualization Engine
 
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge&logo=vercel)](https://decapsule-git-main-krish-guptas-projects-5351c1cf.vercel.app)
-[![Python](https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.95+-teal?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18.x-blue?style=for-the-badge&logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-Fast-purple?style=for-the-badge&logo=vite)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-orange?style=for-the-badge)](LICENSE)
 
 > **Smart · Fast · Interactive · Built for Developers**
@@ -34,8 +34,7 @@ Instead of treating code as a black box, **Decapsule opens it step-by-step.**
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
 - [Installation & Setup](#-installation--setup)
-- [API Documentation](#-api-endpoints)
-- [Limitations & Roadmap](#-current-limitations)
+- [Visualization Components](#-visualization-components)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -43,9 +42,9 @@ Instead of treating code as a black box, **Decapsule opens it step-by-step.**
 
 ## 🔍 Overview
 
-**Decapsule** is a full-stack AI debugging and analysis engine. It safely executes code in a sandbox, classifies algorithmic intent (Recursion, DP, Graph), and streams real-time visualizations to the frontend.
+This is the **Frontend Client** for Decapsule. It is a highly interactive React application that serves as the interface for developers to write code, visualize algorithms, and receive AI-driven explanations.
 
-It doesn't just run code; it **understands** it using AST analysis and Groq AI to generate teacher-level explanations and auto-fixes.
+It connects to the **Decapsule Backend** to receive real-time execution streams and renders complex data structures (Trees, Graphs, DP Tables) into beautiful, animated visualizations.
 
 ---
 
@@ -55,95 +54,143 @@ Unlike typical code runners or AI chat tools, Decapsule combines the best of all
 
 | Feature | Standard Runners | AI Chatbots | **Decapsule** |
 | :--- | :---: | :---: | :---: |
-| **Static Analysis** | ❌ | ❌ | ✅ |
-| **Runtime Tracing** | ✅ | ❌ | ✅ |
-| **Algo Visualization** | ❌ | ❌ | ✅ |
-| **AI Auto-Fix** | ❌ | ✅ | ✅ |
-| **Real-time Streaming**| ❌ | ❌ | ✅ |
+| **Interactive Visuals** | ❌ | ❌ | ✅ |
+| **Real-time Streaming** | ❌ | ❌ | ✅ |
+| **Live Algo Tracing** | ❌ | ❌ | ✅ |
+| **Teacher-Mode Explanations** | ❌ | ✅ | ✅ |
+| **Instant Auto-Fix**| ❌ | ✅ | ✅ |
 
 ---
 
 ## ✨ Core Features
 
-### 🔎 1. Code Classification Engine (AST-Based)
-Automatically detects logic types to trigger the correct debugging pipeline:
-* Recursion
-* Dynamic Programming (Top-Down & Bottom-Up)
-* Graph Algorithms (BFS supported)
-* Arrays & String logic
+### 🎨 1. Interactive Visualization Pane
+Automatically renders the correct data structure based on the code analysis:
+* **Recursion Trees:** visualizes function calls and return paths.
+* **DP Tables:** Animate grid updates for dynamic programming.
+* **Graph Maps:** Shows node traversal and connections.
 
-### ⚙️ 2. Sandboxed Code Execution
-Runs user code in a secure, isolated environment:
-* **Time-limited & Memory-safe**
-* Captures `stdout`, `stderr`, and exit codes.
-* No filesystem or system access.
+### 📝 2. Intelligent Code Editor
+A robust editor environment (`CodeEditor.jsx`) that supports:
+* Syntax highlighting
+* Line numbers
+* Real-time error feedback
 
-### 🔁 3. Recursion Runtime Tracing
-Captures every function call, return, and argument state to build a **full recursion call tree** JSON for visualization.
+### ⚡ 3. Live Debugging Stream (SSE)
+Consumes **Server-Sent Events** from the backend to update the UI incrementally. You see the logic unfold step-by-step, rather than waiting for the whole process to finish.
 
-### 🧮 4. Dynamic Programming Analyzer
-* Detects DP arrays (`dp[]`, `memo`).
-* Tracks updates step-by-step.
-* **Streams DP table updates** live for UI rendering.
+### 🤖 4. AI Assistant Integration
+* **Auto-Fix Modal:** Pop-up interface to view and apply AI-suggested code fixes.
+* **Explanation Panel:** Reads out teacher-style logic breakdowns.
 
-### 🔧 5. Static Bug Finder
-Custom analysis engine detects:
-* Missing base cases
-* Off-by-one errors
-* Infinite loops (heuristic)
-* Unused variables
-
-### 🤖 6. AI-Powered Auto-Fix (Groq)
-Uses the **Groq LLM client** to suggest minimal logical fixes and explain *why* the fix works, returning strictly structured JSON.
-
-### 🧠 7. AI Explanation Engine (Teacher Mode)
-Generates human-readable explanations covering execution flow, time/space complexity, and logic breakdown.
-
-### 🔥 8. Live Debugging Stream (SSE)
-Supports **Server-Sent Events (SSE)** to stream classification, runtime events, DP updates, and AI explanations in real-time.
+### 🎛️ 5. Playback Controls
+* **Timeline Slider:** Scrub through the execution history.
+* **Step-by-Step Navigation:** Move forward or backward through the code execution flow.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### **Backend**
-* **FastAPI**: High-performance Async API.
-* **Python 3.x**: Core logic.
-* **AST**: Abstract Syntax Tree for static analysis.
+### **Core Framework**
+* **React 18**: Component-based UI.
+* **Vite**: Next-generation frontend tooling.
 
-### **AI / ML**
-* **Groq LLM Client**: For ultra-fast AI inference.
-* **Prompt Engineering**: Custom structured prompts for JSON-safe output.
+### **Styling & UI**
+* **Tailwind CSS**: Utility-first styling.
+* **Framer Motion**: For smooth animations (Trees/Graphs).
+* **Lucide React**: Beautiful icons.
 
-### **Communication**
-* **REST APIs**: Standard request/response.
-* **Server-Sent Events (SSE)**: For live data streaming.
+### **State & API**
+* **Axios**: HTTP requests.
+* **React Hooks**: Custom hooks for state management.
+* **EventSource API**: For handling SSE streams.
 
 ---
 
 ## 📁 Project Structure
 
 ```bash
-Backend/
+DECAPSULE/
 │
-├── main.py                     # Entry point
-├── .env                        # Environment variables
-├── requirements.txt            # Dependencies
+├── src/
+│   ├── api/                    # API connection logic
+│   │
+│   ├── components/
+│   │   ├── ui/                 # Reusable UI elements (Buttons, Cards)
+│   │   ├── views/              # Specialized Visualization Views
+│   │   │   ├── DPTable.jsx     # Dynamic Programming Grid
+│   │   │   ├── GraphMap.jsx    # Graph Algo Visualization
+│   │   │   └── RecursionTree.jsx # Tree Visualization
+│   │   │
+│   │   ├── AutoFixModal.jsx    # AI Fix Popup
+│   │   ├── BottomPanels.jsx    # Console & Output Logs
+│   │   ├── CodeEditor.jsx      # Main Editor Window
+│   │   ├── FileExplorer.jsx    # Sidebar File Tree
+│   │   ├── Navbar.jsx          # Top Navigation
+│   │   ├── ProfileModal.jsx    # User Settings
+│   │   ├── Sidebar.jsx         # App Sidebar
+│   │   ├── TimelineSlider.jsx  # Execution Playback Control
+│   │   └── VisualizerPane.jsx  # Main Display Area
+│   │
+│   ├── hooks/                  # Custom React Hooks
+│   ├── lib/                    # Utility functions
+│   │
+│   ├── App.jsx                 # Main App Component
+│   ├── auth.jsx                # Authentication Context
+│   ├── index.css               # Global Styles (Tailwind)
+│   └── index.jsx               # Entry Point
 │
-├── routes/                     # API Routes
-│   ├── run.py                  # Simple execution
-│   ├── process.py              # Full pipeline (JSON)
-│   └── process_stream.py       # SSE Streaming pipeline
-│
-├── engines/                    # Core Logic Engines
-│   ├── classifier.py           # AST Classification
-│   ├── recursion_engine.py     # Trace recursion
-│   ├── recursion_tree_builder.py
-│   ├── dp_engine.py            # Trace DP tables
-│   ├── debugger.py             # Static analysis
-│   └── sandbox_runner.py       # Secure execution
-│
-└── ml/                         # AI Modules
-    ├── groq_client.py
-    ├── explain_prompt.py
-    └── fix_prompt.py
+├── .env                        # Environment Variables
+├── .gitignore
+├── eslint.config.js            # Linting Rules
+├── index.html                  # HTML Root
+├── package.json                # Dependencies
+└── vite.config.js              # Vite Configuration
+
+``` 
+
+## 🚀 Installation & Setup
+
+1.  **Clone the repository**
+    ```bash
+    git clone [https://github.com/yourusername/decapsule-frontend.git](https://github.com/yourusername/decapsule-frontend.git)
+    cd decapsule-frontend
+    ```
+
+2.  **Install dependencies**
+    ```bash
+    npm install
+    # or
+    yarn install
+    ```
+
+3.  **Configure Environment**
+    Create a `.env` file in the root directory:
+    ```env
+    VITE_API_BASE_URL=http://localhost:8000
+    ```
+
+4.  **Run the Development Server**
+    ```bash
+    npm run dev
+    ```
+    Open [http://localhost:5173](http://localhost:5173) to view it in the browser.
+
+---
+
+## ❤️ Contributing
+
+Contributions are welcome! We are actively looking for help with:
+
+- [ ] Enhancing the Graph visualization engine.
+- [ ] Adding more themes to the Code Editor.
+- [ ] Improving mobile responsiveness.
+- [ ] Adding support for Tree DP visualizations.
+
+Feel free to **open an issue** or **submit a PR** 🚀
+
+---
+
+## 📄 License
+
+**MIT License** — Free to use, modify, and extend.
