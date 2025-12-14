@@ -5,12 +5,6 @@ import { RecursionTree } from "./visualizers/RecursionTree";
 import { DPTable } from "./visualizers/DPTable";
 import { GraphMap } from "./visualizers/GraphMap";
 
-/*
-VisualizerPane
-→ backend ke sab formats ko normalize karta hai
-→ visualizers ko sirf clean data deta hai
-*/
-
 export function VisualizerPane({
   activeTab,
   onTabChange,
@@ -27,7 +21,6 @@ export function VisualizerPane({
       };
     }
 
-    // ✅ SINGLE SOURCE OF TRUTH
     const recursionTree =
       debugData?.recursion?.tree ||
       debugData?.analysis?.recursion_tree ||
@@ -36,16 +29,12 @@ export function VisualizerPane({
 
     return {
       recursionTree,
-
       dpTable:
         debugData?.dp?.simulation ||
         debugData?.dp?.table ||
         debugData?.dp_analysis?.table ||
         null,
-
-      graphData:
-        debugData?.graph ||
-        (debugData?.graph_detected ? { detected: true } : null),
+      graphData: debugData?.graph || null,
     };
   }, [debugData]);
 
@@ -83,7 +72,7 @@ export function VisualizerPane({
 
           <TabsContent value="graph" className="h-full m-0">
             <GraphMap
-              graphData={normalizedData.graphData}
+              graph={normalizedData.graphData}
               currentStep={currentStep}
               isExecuted={isExecuted}
             />

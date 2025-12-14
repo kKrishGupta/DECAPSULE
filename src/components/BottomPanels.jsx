@@ -4,13 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 /*
 ===============================================================================
-BottomPanels — Fully Backend Integrated
-Supports:
-- Output
-- Call Stack (recursion events)
-- Logs (runtime)
-- Watch (locals snapshot)
-- Explanation (AI)
+BottomPanels — Fully Backend Integrated + Step Sync
 ===============================================================================
 */
 
@@ -19,21 +13,25 @@ export function BottomPanels({
   isExecuted,
   debugData,
   isDebugging,
+  currentStep,
 }) {
 
-  /* ============================================================================
-      SAFE OUTPUT
-  ============================================================================ */
+  /* ================= SAFE OUTPUT ================= */
   const outputLines =
     typeof outputText === "string"
       ? outputText.replace(/\r\n/g, "\n").split("\n")
       : [];
 
-  const hasDebug = Boolean(debugData);
+  const hasDebug = Boolean(
+    debugData &&
+    (debugData.recursion ||
+      debugData.dp ||
+      debugData.graph ||
+      debugData.runtime ||
+      debugData.explanation)
+  );
 
-  /* ============================================================================
-      BACKEND NORMALIZATION
-  ============================================================================ */
+  /* ================= BACKEND DATA ================= */
   const classification = debugData?.classification || null;
   const analysis = debugData?.analysis || null;
   const issues = debugData?.issues || [];
@@ -42,32 +40,30 @@ export function BottomPanels({
   const runtime = debugData?.runtime || {};
   const recursionEvents = debugData?.recursion?.events || [];
 
-  /* ============================================================================
-      LOGS
-  ============================================================================ */
+  /* ================= LOGS ================= */
   const logs = [];
   if (runtime.stdout) logs.push({ level: "stdout", message: runtime.stdout });
   if (runtime.stderr) logs.push({ level: "stderr", message: runtime.stderr });
 
-  /* ============================================================================
-      CALL STACK (FROM RECURSION EVENTS)
-  ============================================================================ */
+  /* ================= CALL STACK ================= */
   const callStack = recursionEvents.filter(
     (e) => e.event === "call" || e.event === "return"
   );
 
-  /* ============================================================================
-      WATCH VARIABLES (LATEST LOCALS SNAPSHOT)
-  ============================================================================ */
+  // 🔥 ACTIVE EVENT (STEP SYNC)
+  const activeEvent =
+    recursionEvents && recursionEvents[currentStep]
+      ? recursionEvents[currentStep]
+      : null;
+
+  /* ================= WATCH ================= */
   const watchVars = useMemo(() => {
     if (!callStack.length) return null;
     const last = callStack[callStack.length - 1];
     return last.locals || null;
   }, [callStack]);
 
-  /* ============================================================================
-      EXPLANATION TEXT (CLEAN)
-  ============================================================================ */
+  /* ================= EXPLANATION ================= */
   const explanationText = `
 === CLASSIFICATION ===
 ${classification ? JSON.stringify(classification, null, 2) : "N/A"}
@@ -86,15 +82,12 @@ ${
 ${explanation || "No explanation generated"}
 `;
 
-  /* ============================================================================
-      UI
-  ============================================================================ */
+  /* ================= UI ================= */
   return (
     <div className="h-[380px] bg-card flex flex-col border-t border-border">
-
       <Tabs defaultValue="output" className="flex-1 flex flex-col overflow-hidden">
 
-        {/* ---------------- TAB HEADER ---------------- */}
+        {/* ---------- HEADER ---------- */}
         <div className="px-6 py-2 border-b border-border">
           <TabsList className="bg-muted">
             <TabsTrigger value="output">Output</TabsTrigger>
@@ -105,10 +98,10 @@ ${explanation || "No explanation generated"}
           </TabsList>
         </div>
 
-        {/* ---------------- TAB CONTENT ---------------- */}
+        {/* ---------- CONTENT ---------- */}
         <div className="flex-1 overflow-hidden">
 
-          {/* ================= OUTPUT ================= */}
+          {/* ===== OUTPUT ===== */}
           <TabsContent value="output" className="h-full">
             <ScrollArea className="h-full p-6">
               {!isExecuted ? (
@@ -128,7 +121,7 @@ ${explanation || "No explanation generated"}
             </ScrollArea>
           </TabsContent>
 
-          {/* ================= CALL STACK ================= */}
+          {/* ===== CALL STACK (STEP SYNCED) ===== */}
           <TabsContent value="stack" className="h-full">
             <ScrollArea className="h-full p-6">
               {!hasDebug ? (
@@ -137,36 +130,49 @@ ${explanation || "No explanation generated"}
                 <p className="text-muted-foreground">No recursion detected</p>
               ) : (
                 <div className="space-y-2 font-mono text-sm">
-                  {callStack.map((f, i) => (
-                    <div
-                      key={i}
-                      className={`p-3 rounded border ${
-                        f.event === "call"
-                          ? "border-primary bg-primary/10"
-                          : "border-border bg-card"
-                      }`}
-                    >
-                      <div className="flex justify-between">
-                        <span className="text-primary">
-                          {f.event.toUpperCase()} {f.func_name}()
-                        </span>
-                        <span className="text-muted-foreground">
-                          line {f.lineno}
-                        </span>
-                      </div>
-                      {f.return_value && (
-                        <div className="text-green-400">
-                          return → {f.return_value}
+                  {callStack.map((f, i) => {
+                    const isActive =
+                      activeEvent &&
+                      f.event === activeEvent.event &&
+                      f.func_name === activeEvent.func_name &&
+                      i === currentStep;
+
+                    return (
+                      <div
+                        key={i}
+                        className={`p-3 rounded border transition-all ${
+                          isActive
+                            ? "border-yellow-400 bg-yellow-400/20 scale-[1.02]"
+                            : f.event === "call"
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-card opacity-60"
+                        }`}
+                      >
+                        <div className="flex justify-between">
+                          <span className="text-primary">
+                            {f.event.toUpperCase()} {f.func_name}()
+                          </span>
+                          {isActive && (
+                            <span className="text-yellow-400 text-xs font-bold">
+                              ⏯ ACTIVE
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {f.return_value && (
+                          <div className="text-green-400 text-xs">
+                            return → {f.return_value}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
           </TabsContent>
 
-          {/* ================= LOGS ================= */}
+          {/* ===== LOGS ===== */}
           <TabsContent value="logs" className="h-full">
             <ScrollArea className="h-full p-6">
               {!hasDebug ? (
@@ -188,7 +194,7 @@ ${explanation || "No explanation generated"}
             </ScrollArea>
           </TabsContent>
 
-          {/* ================= WATCH ================= */}
+          {/* ===== WATCH ===== */}
           <TabsContent value="watch" className="h-full">
             <ScrollArea className="h-full p-6">
               {!hasDebug ? (
@@ -205,11 +211,13 @@ ${explanation || "No explanation generated"}
             </ScrollArea>
           </TabsContent>
 
-          {/* ================= EXPLANATION ================= */}
+          {/* ===== EXPLANATION ===== */}
           <TabsContent value="explanation" className="h-full">
             <ScrollArea className="h-full p-6">
               {!hasDebug ? (
-                <p className="text-muted-foreground">Debug to view explanation</p>
+                <p className="text-muted-foreground">
+                  Debug to view explanation
+                </p>
               ) : (
                 <pre className="font-mono text-sm whitespace-pre-wrap bg-muted p-4 rounded border border-border">
                   {explanationText}

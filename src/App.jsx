@@ -798,7 +798,6 @@ const handleDebug = async (fileName, input = "") => {
 
       const { stage, payload } = parsed;
 
-      // 🔥 DEBUG CONSOLE
       console.group(`🟢 ${stage}`);
       console.log(payload);
       console.groupEnd();
@@ -807,89 +806,96 @@ const handleDebug = async (fileName, input = "") => {
         const next = { ...prev };
 
         switch (stage) {
+
+          /* ================= CLASSIFICATION ================= */
           case "classification":
             next.classification = payload;
             break;
 
-            case "recursion": {
-                const events = payload?.events || [];
-
-                next.recursion = {
-                  events,
-                  tree:
-                    payload.tree ||
-                    buildRecursionTreeFromEvents(events),
-                };
-                break;
-              }
-
-
-          // 🔥🔥🔥 MAIN FIX IS HERE 🔥🔥🔥
-        case "recursion_error": {
-  const raw = payload?.raw_stdout || "";
-  const jsonStart = raw.indexOf("{");
-
-  if (jsonStart === -1) break;
-
-  const recovered = JSON.parse(raw.slice(jsonStart));
-  const events = recovered.events || [];
-
-  // 🔥 FRONTEND FIX: ROOT CALL INJECT
-  // input n frontend se pata hota hai
-  const inputMatch = code.match(/factorial\((\d+)\)/);
-  const rootN = inputMatch ? inputMatch[1] : null;
-
-  if (rootN && events.length > 0) {
-    const firstCallN = events[0]?.locals?.n;
-
-    // agar root missing hai
-    if (String(rootN) !== String(firstCallN)) {
-      events.unshift({
-        event: "call",
-        func_name: "factorial",
-        locals: { n: String(rootN) },
-      });
-
-      events.push({
-        event: "return",
-        func_name: "factorial",
-        return_value: raw.split("\n")[0], // final stdout
-        locals: { n: String(rootN) },
-      });
-    }
-  }
-
-  next.recursion = {
-    events,
-    tree: buildRecursionTreeFromEvents(events),
-  };
-
-  break;
-}
-
-
-          case "dp_start":
-            next.dp = { table: null, snapshots: [] };
+          /* ================= RECURSION ================= */
+          case "recursion": {
+            const events = payload?.events || [];
+            next.recursion = {
+              events,
+              tree:
+                payload.tree ||
+                buildRecursionTreeFromEvents(events),
+            };
             break;
+          }
 
-         case "dp_step": {
-              const rawTable = payload.table || {};
+          case "recursion_error": {
+            const raw = payload?.raw_stdout || "";
+            const jsonStart = raw.indexOf("{");
+            if (jsonStart === -1) break;
 
-              const rows = Object.entries(rawTable).map(
-                ([k, v]) => ({
-                  index: Number(k),
-                  value: v,
-                })
-              );
+            const recovered = JSON.parse(raw.slice(jsonStart));
+            const events = recovered.events || [];
 
-              next.dp = {
-                memo: payload.memo_name,
-                table: rows,
-              };
+            // root injection fix
+            const inputMatch = code.match(/factorial\((\d+)\)/);
+            const rootN = inputMatch ? inputMatch[1] : null;
 
-              break;
+            if (rootN && events.length > 0) {
+              const firstCallN = events[0]?.locals?.n;
+
+              if (String(rootN) !== String(firstCallN)) {
+                events.unshift({
+                  event: "call",
+                  func_name: "factorial",
+                  locals: { n: String(rootN) },
+                });
+
+                events.push({
+                  event: "return",
+                  func_name: "factorial",
+                  return_value: raw.split("\n")[0],
+                  locals: { n: String(rootN) },
+                });
+              }
             }
 
+            next.recursion = {
+              events,
+              tree: buildRecursionTreeFromEvents(events),
+            };
+            break;
+          }
+
+          /* ================= DP ================= */
+          case "dp_start":
+            next.dp = { table: null };
+            break;
+
+          case "dp_step": {
+            const rawTable = payload.table || {};
+
+            const entries = Object.entries(rawTable)
+              .map(([k, v]) => [Number(k), v])
+              .sort((a, b) => a[0] - b[0]);
+
+            const indexRow = entries.map(([i]) => i);
+            const valueRow = entries.map(([, v]) => v);
+
+            next.dp = {
+              table: [indexRow, valueRow],
+            };
+            break;
+          }
+
+          /* ================= GRAPH ================= */
+          case "graph_start":
+            next.graph = { steps: [] };
+            break;
+
+          case "graph_step":
+            next.graph = {
+              ...(prev.graph || { steps: [] }),
+              steps: [...(prev.graph?.steps || []), payload],
+            };
+            break;
+
+          /* ================= OTHERS ================= */
           case "issues":
             next.issues = payload || [];
             break;
@@ -901,8 +907,7 @@ const handleDebug = async (fileName, input = "") => {
           case "done":
             setIsExecuted(true);
             setIsDebugging(false);
-            // break;
-            return prev; // ⛔ DO NOT TOUCH debugData
+            return prev; // ⛔ keep last state
         }
 
         return next;
@@ -1041,6 +1046,7 @@ return (
                 isExecuted={isExecuted}
                 debugData={debugData}
                 isDebugging={isDebugging}
+                currentStep={currentStep}   // ✅ ADD THIS
               />
             </div>
           </>
