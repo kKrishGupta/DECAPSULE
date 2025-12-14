@@ -174,7 +174,7 @@ DECAPSULE/
     ```bash
     npm run dev
     ```
-    Open [http://localhost:5173](http://localhost:5173) to view it in the browser.
+    Open [Live Preview ](https://decapsule-git-main-krish-guptas-projects-5351c1cf.vercel.app) to view it in the browser.
 
 ---
 
