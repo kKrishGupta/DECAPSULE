@@ -86,6 +86,7 @@ const getFileIcon = (fileName) => {
   return "📄";
 };
 
+
 // Add This Function
 function saveFileAs(filename, content) {
   const blob = new Blob([content], { type: "text/plain" });
