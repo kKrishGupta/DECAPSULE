@@ -1,52 +1,34 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Play } from "lucide-react";
 
 /*
 ===============================================================================
-RecursionTree (LIVE SYNC VERSION)
-✔ TimelineSlider → currentStep sync
-✔ Active node highlight
-✔ Auto scroll into view
-✔ Old fallback UI untouched
+RecursionTree (MERGED & FIXED)
+✔ Backend recursionTree → REAL TREE
+✔ No recursionTree → OLD STATIC UI (unchanged)
+✔ Backend logic = ❌ NO
 ===============================================================================
 */
 
 export function RecursionTree({
-  recursionTree,   // normalized tree
+  recursionTree,   // 👈 normalized tree from VisualizerPane
   currentStep,
   isExecuted,
 }) {
   const [tree, setTree] = useState(null);
 
-  // 🔥 refs for auto-scroll
-  const nodeRefs = useRef({});
-
   /* ---------------- LOAD TREE ---------------- */
   useEffect(() => {
     if (!recursionTree) {
       setTree(null);
-      nodeRefs.current = {};
     } else {
       setTree(recursionTree);
     }
   }, [recursionTree]);
 
-  /* ================= AUTO SCROLL ================= */
-  useEffect(() => {
-    if (currentStep == null) return;
-
-    const el = nodeRefs.current[currentStep];
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-  }, [currentStep]);
-
   /* ============================================================================
-      CASE 1 — NO DEBUG / NO TREE → OLD UI (UNCHANGED)
+      CASE 1 — NO DEBUG / NO TREE → OLD UI (SAFE)
   ============================================================================ */
   if (!isExecuted || !tree) {
     const maxVisibleNodes = isExecuted ? Math.min(currentStep + 1, 10) : 0;
@@ -66,6 +48,8 @@ export function RecursionTree({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-8">
+
+            {/* -------- OLD STATIC SVG (UNCHANGED) -------- */}
             <div className="w-full max-w-2xl">
               <svg
                 viewBox="0 0 800 300"
@@ -92,6 +76,25 @@ export function RecursionTree({
                 </g>
               </svg>
             </div>
+
+            {/* -------- OLD CALL STACK -------- */}
+            <div className="w-full max-w-2xl space-y-2">
+              {Array.from({ length: maxVisibleNodes }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`p-4 rounded-md border ${
+                    i === maxVisibleNodes - 1
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <span className="font-mono text-sm">
+                    recursive_call({i})
+                  </span>
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
       </ScrollArea>
@@ -99,27 +102,15 @@ export function RecursionTree({
   }
 
   /* ============================================================================
-      CASE 2 — REAL BACKEND TREE (LIVE SYNC)
+      CASE 2 — BACKEND TREE → REAL TREE (FIXED)
   ============================================================================ */
 
   const renderNode = (node) => {
     if (!node) return null;
 
-    const isActive = node.stepIndex === currentStep;
-
     return (
-      <li key={node.stepIndex} className="ml-4">
-        <div
-          ref={(el) => {
-            if (el) nodeRefs.current[node.stepIndex] = el;
-          }}
-          className={`
-            border rounded px-3 py-1 mb-2 font-mono text-sm transition
-            ${isActive
-              ? "border-primary bg-primary/20"
-              : "border-border bg-muted"}
-          `}
-        >
+      <li className="ml-4">
+        <div className="border rounded px-3 py-1 mb-2 bg-muted font-mono text-sm">
           <strong>{node.func}</strong>(
           {Object.entries(node.args || {})
             .map(([k, v]) => `${k}=${v}`)
@@ -134,7 +125,11 @@ export function RecursionTree({
 
         {node.children?.length > 0 && (
           <ul className="ml-4 border-l border-border pl-4">
-            {node.children.map((child) => renderNode(child))}
+            {node.children.map((child, i) => (
+              <React.Fragment key={i}>
+                {renderNode(child)}
+              </React.Fragment>
+            ))}
           </ul>
         )}
       </li>
@@ -143,14 +138,16 @@ export function RecursionTree({
 
   return (
     <ScrollArea className="h-full p-6">
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
+
         <h2 className="text-lg font-semibold text-center">
           Recursion Tree
         </h2>
 
-        <div className="border border-border rounded-lg p-4 bg-background">
+        <div className="border border-border rounded-lg p-4 bg-background overflow-auto">
           <ul>{renderNode(tree)}</ul>
         </div>
+
       </div>
     </ScrollArea>
   );

@@ -132,46 +132,26 @@ const handleLogout = async () => {
 
 
 const totalSteps = timeline.length;
-// const slicedRecursionEvents = useMemo(() => {
-//   return timeline.slice(0, currentStep + 1).map(e => ({
-//     event: e.type,
-//     func_name: e.func,
-//     locals: e.locals,
-//     return_value: e.returnValue,
-//   }));
-// }, [timeline, currentStep]);
-
-// const activeRecursionNodeId = useMemo(() => {
-//   const evt = timeline[currentStep];
-//   if (!evt) return null;
-
-//   return evt.type === "call" ? currentStep : null;
-// }, [timeline, currentStep]);
+const slicedRecursionEvents = useMemo(() => {
+  return timeline.slice(0, currentStep + 1).map(e => ({
+    event: e.type,
+    func_name: e.func,
+    locals: e.locals,
+    return_value: e.returnValue,
+  }));
+}, [timeline, currentStep]);
 
 const activeRecursionNodeId = useMemo(() => {
   const evt = timeline[currentStep];
   if (!evt) return null;
 
-  if (evt.type === "call") return currentStep;
-
-  if (evt.type === "return") {
-    for (let i = currentStep - 1; i >= 0; i--) {
-      if (timeline[i]?.type === "call") {
-        return i;
-      }
-    }
-  }
-
-  return null;
+  return evt.type === "call" ? currentStep : null;
 }, [timeline, currentStep]);
 
 
 const liveRecursionTree = useMemo(() => {
-  return buildRecursionTreeFromEvents(
-    debugData?.recursion?.events || []
-  );
-}, [debugData]);
-
+  return buildRecursionTreeFromEvents(slicedRecursionEvents);
+}, [slicedRecursionEvents]);
 
 const callStack = useMemo(() => {
   const stack = [];
@@ -281,23 +261,22 @@ function buildRecursionTreeFromEvents(events = []) {
               </div>
 
               <div className="w-full lg:w-2/5 flex flex-col overflow-hidden">
-              <VisualizerPane
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                currentStep={currentStep}
-                activeRecursionNodeId={activeRecursionNodeId}
-                isExecuted={isExecuted}
-                debugData={{
-                  ...debugData,
-                  recursion: debugData.recursion
-                    ? {
-                        ...debugData.recursion,
-                        tree: liveRecursionTree,
-                      }
-                    : null,
-                }}
-              />
-
+                <VisualizerPane
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                   
+                    currentStep={currentStep}
+                    isExecuted={isExecuted}
+                    debugData={{
+                      ...debugData,
+                      recursion: debugData.recursion
+                        ? {
+                            ...debugData.recursion,
+                            tree: liveRecursionTree, // 🔥 LIVE TREE
+                          }
+                        : null,
+                    }}
+                  />
 
               </div>
             </div>

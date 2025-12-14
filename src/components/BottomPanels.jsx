@@ -1,14 +1,10 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /*
 ===============================================================================
-BottomPanels — FULLY FIXED
-✔ Call stack auto-scroll
-✔ call = 🟢 green
-✔ return = 🔴 red
-✔ active step highlight
+BottomPanels — Fully Backend Integrated + Step Sync
 ===============================================================================
 */
 
@@ -19,36 +15,46 @@ export function BottomPanels({
   isDebugging,
   currentStep,
 }) {
+
   /* ================= SAFE OUTPUT ================= */
   const outputLines =
     typeof outputText === "string"
       ? outputText.replace(/\r\n/g, "\n").split("\n")
       : [];
 
+  const hasDebug = Boolean(
+    debugData &&
+    (debugData.recursion ||
+      debugData.dp ||
+      debugData.graph ||
+      debugData.runtime ||
+      debugData.explanation)
+  );
+
+  /* ================= BACKEND DATA ================= */
+  const classification = debugData?.classification || null;
+  const analysis = debugData?.analysis || null;
+  const issues = debugData?.issues || [];
+  const explanation = debugData?.explanation || "";
+
+  const runtime = debugData?.runtime || {};
   const recursionEvents = debugData?.recursion?.events || [];
+
+  /* ================= LOGS ================= */
+  const logs = [];
+  if (runtime.stdout) logs.push({ level: "stdout", message: runtime.stdout });
+  if (runtime.stderr) logs.push({ level: "stderr", message: runtime.stderr });
 
   /* ================= CALL STACK ================= */
   const callStack = recursionEvents.filter(
     (e) => e.event === "call" || e.event === "return"
   );
 
+  // 🔥 ACTIVE EVENT (STEP SYNC)
   const activeEvent =
     recursionEvents && recursionEvents[currentStep]
       ? recursionEvents[currentStep]
       : null;
-
-  /* ================= AUTO SCROLL ================= */
-  const stackRefs = useRef({});
-
-  useEffect(() => {
-    const el = stackRefs.current[currentStep];
-    if (el) {
-      el.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-  }, [currentStep]);
 
   /* ================= WATCH ================= */
   const watchVars = useMemo(() => {
@@ -56,6 +62,25 @@ export function BottomPanels({
     const last = callStack[callStack.length - 1];
     return last.locals || null;
   }, [callStack]);
+
+  /* ================= EXPLANATION ================= */
+  const explanationText = `
+=== CLASSIFICATION ===
+${classification ? JSON.stringify(classification, null, 2) : "N/A"}
+
+=== ANALYSIS ===
+${analysis ? JSON.stringify(analysis, null, 2) : "N/A"}
+
+=== ISSUES ===
+${
+  issues.length
+    ? issues.map((i) => `- ${i.type}: ${i.detail} (${i.severity})`).join("\n")
+    : "No issues detected"
+}
+
+=== AI EXPLANATION ===
+${explanation || "No explanation generated"}
+`;
 
   /* ================= UI ================= */
   return (
@@ -67,7 +92,9 @@ export function BottomPanels({
           <TabsList className="bg-muted">
             <TabsTrigger value="output">Output</TabsTrigger>
             <TabsTrigger value="stack">Call Stack</TabsTrigger>
+            <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="watch">Watch</TabsTrigger>
+            <TabsTrigger value="explanation">Explanation</TabsTrigger>
           </TabsList>
         </div>
 
@@ -94,13 +121,13 @@ export function BottomPanels({
             </ScrollArea>
           </TabsContent>
 
-          {/* ===== CALL STACK (AUTO SCROLL + COLOR) ===== */}
+          {/* ===== CALL STACK (STEP SYNCED) ===== */}
           <TabsContent value="stack" className="h-full">
             <ScrollArea className="h-full p-6">
-              {callStack.length === 0 ? (
-                <p className="text-muted-foreground">
-                  No recursion detected
-                </p>
+              {!hasDebug ? (
+                <p className="text-muted-foreground">Debug to view call stack</p>
+              ) : callStack.length === 0 ? (
+                <p className="text-muted-foreground">No recursion detected</p>
               ) : (
                 <div className="space-y-2 font-mono text-sm">
                   {callStack.map((f, i) => {
@@ -110,46 +137,31 @@ export function BottomPanels({
                       f.func_name === activeEvent.func_name &&
                       i === currentStep;
 
-                    const isCall = f.event === "call";
-                    const isReturn = f.event === "return";
-
                     return (
                       <div
                         key={i}
-                        ref={(el) => {
-                          if (el && isActive) {
-                            stackRefs.current[currentStep] = el;
-                          }
-                        }}
                         className={`p-3 rounded border transition-all ${
                           isActive
-                            ? "border-yellow-400 bg-yellow-400/20 scale-[1.03]"
-                            : isCall
-                            ? "border-green-500 bg-green-500/10"
-                            : "border-red-500 bg-red-500/10 opacity-80"
+                            ? "border-yellow-400 bg-yellow-400/20 scale-[1.02]"
+                            : f.event === "call"
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-card opacity-60"
                         }`}
                       >
-                        <div className="flex justify-between items-center">
-                          <span
-                            className={
-                              isCall
-                                ? "text-green-400"
-                                : "text-red-400"
-                            }
-                          >
-                            {isCall ? "CALL" : "RETURN"} {f.func_name}()
+                        <div className="flex justify-between">
+                          <span className="text-primary">
+                            {f.event.toUpperCase()} {f.func_name}()
                           </span>
-
                           {isActive && (
                             <span className="text-yellow-400 text-xs font-bold">
-                              ▶ ACTIVE
+                              ⏯ ACTIVE
                             </span>
                           )}
                         </div>
 
-                        {f.return_value !== undefined && isReturn && (
-                          <div className="text-red-400 text-xs mt-1">
-                            return → {String(f.return_value)}
+                        {f.return_value && (
+                          <div className="text-green-400 text-xs">
+                            return → {f.return_value}
                           </div>
                         )}
                       </div>
@@ -160,16 +172,55 @@ export function BottomPanels({
             </ScrollArea>
           </TabsContent>
 
+          {/* ===== LOGS ===== */}
+          <TabsContent value="logs" className="h-full">
+            <ScrollArea className="h-full p-6">
+              {!hasDebug ? (
+                <p className="text-muted-foreground">Debug to view logs</p>
+              ) : logs.length === 0 ? (
+                <p className="text-muted-foreground">No logs available</p>
+              ) : (
+                <div className="font-mono text-sm space-y-2">
+                  {logs.map((log, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="text-primary">[{log.level}]</span>
+                      <span className="whitespace-pre-wrap">
+                        {log.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
           {/* ===== WATCH ===== */}
           <TabsContent value="watch" className="h-full">
             <ScrollArea className="h-full p-6">
-              {!watchVars ? (
+              {!hasDebug ? (
+                <p className="text-muted-foreground">Debug to view variables</p>
+              ) : !watchVars ? (
                 <p className="text-muted-foreground">
                   No variables available
                 </p>
               ) : (
                 <pre className="font-mono text-sm bg-muted p-4 rounded border border-border">
                   {JSON.stringify(watchVars, null, 2)}
+                </pre>
+              )}
+            </ScrollArea>
+          </TabsContent>
+
+          {/* ===== EXPLANATION ===== */}
+          <TabsContent value="explanation" className="h-full">
+            <ScrollArea className="h-full p-6">
+              {!hasDebug ? (
+                <p className="text-muted-foreground">
+                  Debug to view explanation
+                </p>
+              ) : (
+                <pre className="font-mono text-sm whitespace-pre-wrap bg-muted p-4 rounded border border-border">
+                  {explanationText}
                 </pre>
               )}
             </ScrollArea>
