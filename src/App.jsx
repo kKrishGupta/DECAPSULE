@@ -813,54 +813,40 @@ const handleDebug = async (fileName, input = "") => {
             break;
 
           /* ================= RECURSION ================= */
-          case "recursion": {
-            const events = payload?.events || [];
-            next.recursion = {
-              events,
-              tree:
-                payload.tree ||
-                buildRecursionTreeFromEvents(events),
-            };
-            break;
-          }
+              case "recursion": {
+                const events = payload?.events || [];
 
-          case "recursion_error": {
-            const raw = payload?.raw_stdout || "";
-            const jsonStart = raw.indexOf("{");
-            if (jsonStart === -1) break;
-
-            const recovered = JSON.parse(raw.slice(jsonStart));
-            const events = recovered.events || [];
-
-            // root injection fix
-            const inputMatch = code.match(/factorial\((\d+)\)/);
-            const rootN = inputMatch ? inputMatch[1] : null;
-
-            if (rootN && events.length > 0) {
-              const firstCallN = events[0]?.locals?.n;
-
-              if (String(rootN) !== String(firstCallN)) {
-                events.unshift({
-                  event: "call",
-                  func_name: "factorial",
-                  locals: { n: String(rootN) },
-                });
-
-                events.push({
-                  event: "return",
-                  func_name: "factorial",
-                  return_value: raw.split("\n")[0],
-                  locals: { n: String(rootN) },
-                });
+                next.recursion = {
+                  events,
+                  tree:
+                    payload.tree ||
+                    buildRecursionTreeFromEvents(events),
+                };
+                break;
               }
-            }
 
-            next.recursion = {
-              events,
-              tree: buildRecursionTreeFromEvents(events),
-            };
-            break;
-          }
+              case "recursion_error": {
+                try {
+                  const raw = payload?.raw_stdout || "";
+
+                  // ✅ SAFEST WAY: extract LAST valid JSON block only
+                  const match = raw.match(/{[\s\S]*}$/);
+                  if (!match) break;
+
+                  const recovered = JSON.parse(match[0]);
+                  const events = recovered.events || [];
+
+                  if (!events.length) break;
+
+                  next.recursion = {
+                    events,
+                    tree: buildRecursionTreeFromEvents(events),
+                  };
+                } catch (err) {
+                  console.error("❌ Failed to recover recursion JSON", err);
+                }
+                break;
+              }
 
           /* ================= DP ================= */
           case "dp_start":
