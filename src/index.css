@@ -109,3 +109,6 @@
     text-wrap: balance;
   }
 }
+.monaco-debug-line {
+  background: rgba(99, 102, 241, 0.25) !important; /* primary-ish */
+}

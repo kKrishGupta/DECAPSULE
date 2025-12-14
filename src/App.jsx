@@ -1,15 +1,12 @@
+// 🔥 React hooks (SAB EK SATH)
+import React, { useState, useEffect, useRef, useMemo } from "react";
 
-import React, { useState, useEffect, useRef } from "react";
-
+// firebase
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
-import {
-  loginUser,
-  signupUser,
-  logoutUser,
-} from "./auth";
+import { loginUser, signupUser, logoutUser } from "./auth";
 
-// MAIN COMPONENTS
+// components
 import { Navbar } from "./components/Navbar.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { CodeEditor } from "./components/CodeEditor.jsx";
@@ -17,6 +14,7 @@ import { VisualizerPane } from "./components/VisualizerPane.jsx";
 import { TimelineSlider } from "./components/TimelineSlider.jsx";
 import { BottomPanels } from "./components/BottomPanels.jsx";
 import { ProfileModal } from "./components/ProfileModal.jsx";
+
 
 // PAGE VIEWS (all .jsx)
 import { Dashboard } from "./components/views/Dashboard.jsx";
@@ -110,6 +108,11 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+   // 🔥 DEBUG STATES (VERY IMPORTANT POSITION)
+  const [debugData, setDebugData] = useState({});
+  const [isDebugging, setIsDebugging] = useState(false);
+
+
   // Visualizer tab state
   const [activeTab, setActiveTab] = useState("recursion");
   const [activeVisualizer, setActiveVisualizer] = useState("recursion");
@@ -143,7 +146,7 @@ useEffect(() => {
 
     return () => unsubscribe();
   }, []);
-  
+
 const handleLogout = async () => {
   try {
     await logoutUser();   // firebase signOut
@@ -153,7 +156,70 @@ const handleLogout = async () => {
   }
 };
 
-  const totalSteps = 15;
+  // const totalSteps = 15;
+  // ********************************************************
+  const timeline = useMemo(() => {
+  const events = debugData?.recursion?.events || [];
+
+  return events.map((e, idx) => ({
+    id: idx,
+    type: e.event,        // call | return | line
+    func: e.func_name,
+    lineno: e.lineno,
+    locals: e.locals || {},
+    returnValue: e.return_value ?? null,
+  }));
+}, [debugData]);
+
+
+const totalSteps = timeline.length;
+const slicedRecursionEvents = useMemo(() => {
+  return timeline.slice(0, currentStep + 1).map(e => ({
+    event: e.type,
+    func_name: e.func,
+    locals: e.locals,
+    return_value: e.returnValue,
+  }));
+}, [timeline, currentStep]);
+
+const liveRecursionTree = useMemo(() => {
+  return buildRecursionTreeFromEvents(slicedRecursionEvents);
+}, [slicedRecursionEvents]);
+
+const callStack = useMemo(() => {
+  const stack = [];
+
+  for (let i = 0; i <= currentStep; i++) {
+    const e = timeline[i];
+    if (!e) continue;
+
+    if (e.type === "call") stack.push(e);
+    if (e.type === "return") stack.pop();
+  }
+
+  return stack;
+}, [timeline, currentStep]);
+
+
+// ************************************
+const [isPlaying, setIsPlaying] = useState(false);
+useEffect(() => {
+  if (!isPlaying || !isExecuted) return;
+
+  if (currentStep >= totalSteps - 1) {
+    setIsPlaying(false);
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    setCurrentStep((s) => s + 1);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [isPlaying, currentStep, totalSteps, isExecuted]);
+
+
+
 // /****************************************************** */
 function buildRecursionTreeFromEvents(events = []) {
   if (!events.length) return null;
@@ -220,27 +286,63 @@ function buildRecursionTreeFromEvents(events = []) {
                   isExecuted={isExecuted}
                   codeContent={codeContent}
                   onCodeChange={setCodeContent}
-                  activeFile={activeFile}
+                  activeFile={activeFile}                 
+                  timeline={timeline}
                 />
               </div>
 
               <div className="w-full lg:w-2/5 flex flex-col overflow-hidden">
                 <VisualizerPane
-                  activeTab={activeVisualizer}
-                  onTabChange={setActiveVisualizer}
-                  currentStep={currentStep}
-                  isExecuted={isExecuted}
-                  debugData={debugData}
-                />
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    currentStep={currentStep}
+                    isExecuted={isExecuted}
+                    debugData={{
+                      ...debugData,
+                      recursion: debugData.recursion
+                        ? {
+                            ...debugData.recursion,
+                            tree: liveRecursionTree, // 🔥 LIVE TREE
+                          }
+                        : null,
+                    }}
+                  />
+
               </div>
             </div>
 
-            <TimelineSlider
-              currentStep={currentStep}
-              totalSteps={totalSteps}
-              onStepChange={setCurrentStep}
-              isExecuted={isExecuted}
-            />
+           <TimelineSlider
+                currentStep={currentStep}
+                totalSteps={totalSteps}
+
+                isExecuted={isExecuted}
+                isPlaying={isPlaying}
+                speed={500}
+
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+
+                onRestart={() => {
+                  setIsPlaying(false);
+                  setCurrentStep(0);
+                }}
+
+              onStop={() => {
+                setIsPlaying(false);
+                setCurrentStep(0);
+                setIsExecuted(false);
+                setDebugData({});
+              }}
+
+
+                onStepChange={(step) => {
+                  setIsPlaying(false);
+                  setCurrentStep(step);
+                }}
+
+                onSpeedChange={() => {}}
+              />
+
 
             <BottomPanels
               selectedLine={selectedLine}
@@ -655,9 +757,6 @@ if __name__ == "__main__":
   /* ========================== DEBUG MODE (SSE) ========================= */
   /* ==================================================================== */
 
-  const [debugData, setDebugData] = useState({});
-  const [isDebugging, setIsDebugging] = useState(false);
-
   // we keep the SSE connection here
   const streamRef = useRef(null);
 
@@ -717,6 +816,11 @@ if __name__ == "__main__":
   /* ---------------------------------------------------------------- */
 
 const handleDebug = async (fileName, input = "") => {
+setCurrentStep(0);
+setIsPlaying(false);
+setIsExecuted(false);
+setDebugData({});
+
   const code = files?.[fileName]?.content || codeContent;
   if (!code) {
     alert("No code to debug!");
@@ -954,7 +1058,7 @@ return (
                 className="h-full border-r border-border overflow-hidden"
                 style={{ width: `${editorPercent}%` }}
               >
-                <CodeEditor
+              <CodeEditor
                   selectedLine={selectedLine}
                   onLineClick={setSelectedLine}
                   currentStep={currentStep}
@@ -963,7 +1067,9 @@ return (
                   codeContent={codeContent}
                   onCodeChange={setCodeContent}
                   activeFile={activeFile}
+                  timeline={timeline}
                 />
+
               </div>
 
               {/* Drag bar */}
@@ -974,16 +1080,54 @@ return (
 
               {/* Visualizer */}
               <div className="flex-1 overflow-hidden">
-                <VisualizerPane
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                  currentStep={currentStep}
-                  isExecuted={isExecuted}
-                  debugData={debugData}
-                />
+                  <VisualizerPane
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    currentStep={currentStep}
+                    isExecuted={isExecuted}
+                    debugData={{
+                      ...debugData,
+                      recursion: debugData.recursion
+                        ? {
+                            ...debugData.recursion,
+                            tree: liveRecursionTree, // 🔥 LIVE TREE
+                          }
+                        : null,
+                    }}
+                  />
+
               </div>
 
             </div>
+
+            {/* ===== TIMELINE SLIDER (REAL DEBUG CONTROL) ===== */}
+<TimelineSlider
+  currentStep={currentStep}
+  totalSteps={totalSteps}
+  isExecuted={isExecuted}
+  isPlaying={isPlaying}
+
+  onPlay={() => setIsPlaying(true)}
+  onPause={() => setIsPlaying(false)}
+
+  onRestart={() => {
+    setIsPlaying(false);
+    setCurrentStep(0);
+  }}
+
+  onStop={() => {
+    setIsPlaying(false);
+    setCurrentStep(0);
+    setIsExecuted(false);
+    setDebugData({});
+  }}
+
+  onStepChange={(step) => {
+    setIsPlaying(false);
+    setCurrentStep(step);
+  }}
+/>
+
 
             {/* Drag for Bottom Panel */}
             <div
@@ -996,14 +1140,16 @@ return (
               className="w-full bg-card border-t border-border"
               style={{ height: bottomPanelHeight }}
             >
-              <BottomPanels
-                selectedLine={selectedLine}
-                outputText={outputText}
-                isExecuted={isExecuted}
-                debugData={debugData}
-                isDebugging={isDebugging}
-                currentStep={currentStep}   // ✅ ADD THIS
-              />
+           <BottomPanels
+              selectedLine={selectedLine}
+              outputText={outputText}
+              isExecuted={isExecuted}
+              debugData={debugData}
+              isDebugging={isDebugging}
+              currentStep={currentStep}
+              callStack={callStack}
+            />
+
             </div>
           </>
         )}

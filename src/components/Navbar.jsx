@@ -60,21 +60,28 @@ function savePDFAs(filename, content) {
 
 /* ---------------- Language Config ---------------- */
 const languageConfig = {
-  javascript: { label: "JavaScript", extension: ".js", icon: "🟨" },
+  // javascript: { label: "JavaScript", extension: ".js", icon: "🟨" },
+
   python: { label: "Python", extension: ".py", icon: "🐍" },
-  cpp: { label: "C++", extension: ".cpp", icon: "⚙️" },
-  java: { label: "Java", extension: ".java", icon: "☕" },
+
+  // cpp: { label: "C++", extension: ".cpp", icon: "⚙️" },
+
+  // java: { label: "Java", extension: ".java", icon: "☕" },
 };
+;
 
 /* -------------- FILE EXTENSION → LANGUAGE ICON -------------- */
 const getFileIcon = (fileName) => {
   if (!fileName) return "📄";
   const ext = fileName.split(".").pop().toLowerCase();
 
-  if (ext === "js") return "🟨";
+  // if (ext === "js") return "🟨";
+
   if (ext === "py") return "🐍";
-  if (["cpp", "cc", "cxx", "c++", "c"].includes(ext)) return "⚙️";
-  if (ext === "java") return "☕";
+
+  // if (["cpp", "cc", "cxx", "c++", "c"].includes(ext)) return "⚙️";
+
+  // if (ext === "java") return "☕";
 
   return "📄";
 };
@@ -339,7 +346,7 @@ const submitDebug = () => {
                       if (e.key === "Escape") handleCloseCreate();
                     }}
                     className="w-full px-2 py-1 bg-muted border border-border rounded outline-none"
-                    placeholder="main.cpp"
+                    placeholder="main.py"
                   />
 
                   <div className="flex gap-2 mt-2">
