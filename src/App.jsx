@@ -1,4 +1,13 @@
+
 import React, { useState, useEffect, useRef } from "react";
+
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+import {
+  loginUser,
+  signupUser,
+  logoutUser,
+} from "./auth";
 
 // MAIN COMPONENTS
 import { Navbar } from "./components/Navbar.jsx";
@@ -114,8 +123,35 @@ function App() {
   const [codeContent, setCodeContent] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // const [currentUser, setCurrentUser] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const isLoggedIn = !!currentUser;
+
+useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser({
+          uid: user.uid,
+          email: user.email,
+          name: user.email.split("@")[0],
+        });
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+  
+const handleLogout = async () => {
+  try {
+    await logoutUser();   // firebase signOut
+    setCurrentUser(null); // local state clear
+  } catch (err) {
+    console.error("Logout failed:", err);
+  }
+};
 
   const totalSteps = 15;
 // /****************************************************** */
@@ -219,77 +255,11 @@ function buildRecursionTreeFromEvents(events = []) {
     }
   };
 
-  // Auto-login from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("dec_user");
-    if (saved) {
-      try {
-        const user = JSON.parse(saved);
-        setCurrentUser(user);
-        setIsLoggedIn(true);
-      } catch (err) {
-        console.error("Failed to load user from storage", err);
-      }
-    }
-  }, []);
-
-
 // login and signup 
 function extractUsername(email) {
   if (!email) return "User";
   return email.split("@")[0];  
 }
-
-// LOGIN
-const handleLogin = (email, password) => {
-  const username = extractUsername(email);
-
-  const user = {
-    name: username,
-    email,
-  };
-
-  setIsLoggedIn(true);
-  setCurrentUser(user);
-
-  // Save to localStorage 
-  localStorage.setItem("dec_user", JSON.stringify(user));
-
-  return true;
-};
-
-
-// SIGNUP
-const handleSignup = (name, email, pass, confirmPass) => {
-  if (pass !== confirmPass) {
-    alert("Passwords do not match");
-    return false;
-  }
-
-  const username = name || extractUsername(email);
-
-  const user = {
-    name: username,
-    email,
-  };
-
-  setIsLoggedIn(true);
-  setCurrentUser(user);
-
-  // Save to localStorage
-  localStorage.setItem("dec_user", JSON.stringify(user));
-
-  return true;
-};
-
-
-// LOGOUT
-const handleLogout = () => {
-  setIsLoggedIn(false);
-  setCurrentUser(null);
-  localStorage.removeItem("dec_user");
-};
-
 
 
   /* ------------------ Load Files ------------------ */
@@ -1041,19 +1011,25 @@ return (
       </div>
     </div>
 
-    {/* ---------------- PROFILE MODAL ---------------- */}
+  {/* ---------------- PROFILE MODAL ---------------- */}
     <ProfileModal
   open={profileOpen}
   onOpenChange={setProfileOpen}
   isLoggedIn={isLoggedIn}
   currentUser={currentUser}
-  onLogin={handleLogin}
-  onSignup={handleSignup}
-  onLogout={handleLogout}
+
+  onLogin={(email, password) =>
+    loginUser(email, password)
+  }
+
+  onSignup={(name, email, password) =>
+    signupUser(email, password)
+  }
+
+  onLogout={logoutUser}
 />
 
   </div>
 )};
 
 export default App;
-

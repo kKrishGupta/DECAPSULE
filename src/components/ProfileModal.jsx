@@ -1,3 +1,5 @@
+// ProfileModel.jsx 
+
 import React from 'react';
 import {
   Dialog,
@@ -12,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { loginUser, signupUser, logoutUser } from "@/auth";
 import { User, Code2, Award, Target, LogOut } from 'lucide-react';
 import {
   Select,
@@ -51,23 +54,32 @@ export function ProfileModal({ open, onOpenChange, isLoggedIn = false, currentUs
     }
   }, [isLoggedIn, currentUser]);
 
-  const handleLoginClick = () => {
-    if (onLogin(loginData.email, loginData.password)) {
-      setLoginData({ email: "", password: "" });
+  const handleLoginClick = async () => {
+    try {
+      await loginUser(loginData.email, loginData.password);
       onOpenChange(false);
+    } catch (err) {
+      alert(err.message);
     }
   };
 
-  const handleSignupClick = () => {
-    if (onSignup(signupData.fullName, signupData.email, signupData.password, signupData.confirmPassword)) {
-      setSignupData({ fullName: "", email: "", password: "", confirmPassword: "" });
+  const handleSignupClick = async () => {
+    if (signupData.password !== signupData.confirmPassword) {
+      return alert("Passwords do not match");
+    }
+
+    try {
+      await signupUser(signupData.email, signupData.password);
       onOpenChange(false);
+    } catch (err) {
+      alert(err.message);
     }
   };
 
-  const handleLogoutClick = () => {
-    onLogout();
+  const handleLogoutClick = async () => {
+    await logoutUser();
   };
+
 
   const handleSave = () => {
     alert('Profile saved successfully!');
