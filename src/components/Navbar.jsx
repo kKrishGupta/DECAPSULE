@@ -339,7 +339,7 @@ const submitDebug = () => {
                       if (e.key === "Escape") handleCloseCreate();
                     }}
                     className="w-full px-2 py-1 bg-muted border border-border rounded outline-none"
-                    placeholder="main.cpp"
+                    placeholder="main.py"
                   />
 
                   <div className="flex gap-2 mt-2">
