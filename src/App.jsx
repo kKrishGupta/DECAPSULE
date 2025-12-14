@@ -31,54 +31,56 @@ import jsPDF from "jspdf";
 
 /* ------------------ DEFAULT SAMPLE FILES ------------------ */
 const DEFAULT_FILES = {
-  "fibonacci.js": {
-    content: `function fibonacci(n, memo = {}) {
-  if (n <= 1) return n;
-  if (memo[n]) return memo[n];
-  memo[n] = fibonacci(n - 1, memo) + fibonacci(n - 2, memo);
-  return memo[n];
-}
-console.log(fibonacci(10));`,
+  "fibonacci.py": {
+    content: `def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+
+print(fibonacci(6))`,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   },
 
-  "quicksort.js": {
-    content: `function quicksort(arr) {
-  if (arr.length <= 1) return arr;
-  const pivot = arr[Math.floor(arr.length / 2)];
-  const left = arr.filter((x) => x < pivot);
-  const mid = arr.filter((x) => x === pivot);
-  const right = arr.filter((x) => x > pivot);
-  return [...quicksort(left), ...mid, ...quicksort(right)];
+  "graph_bfs.py": {
+    content: `from collections import deque
+
+def bfs(start, graph):
+    visited = set()
+    queue = deque([start])
+    visited.add(start)
+
+    traversal = []
+
+    while queue:
+        node = queue.popleft()
+        traversal.append(node)
+
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+    return traversal
+
+
+# ----------- GRAPH DEFINITION -----------
+graph = {
+    1: [2, 3],
+    2: [4, 5],
+    3: [6],
+    4: [],
+    5: [],
+    6: []
 }
-console.log(quicksort([5, 3, 8, 1, 2]));`,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
 
-  "graph-bfs.js": {
-    content: `function bfs(start, graph){
-  const visited = new Set();
-  const q = [start];
-  visited.add(start);
-
-  while(q.length){
-    const node = q.shift();
-    console.log('visit', node);
-
-    for(const nei of graph[node] || []) {
-      if(!visited.has(nei)){
-        visited.add(nei);
-        q.push(nei);
-      }
-    }
-  }
-}`,
+print(bfs(1, graph))`,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   },
 };
+
 
 /* ------------------ LOCAL STORAGE ------------------ */
 function loadFromStorage() {
