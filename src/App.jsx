@@ -31,51 +31,8 @@ import jsPDF from "jspdf";
 
 /* ------------------ DEFAULT SAMPLE FILES ------------------ */
 const DEFAULT_FILES = {
-  "fibonacci.py": {
-    content: `def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n - 1) + fibonacci(n - 2)
-
-
-print(fibonacci(6))`,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  },
-
-  "graph_bfs.py": {
-    content: `from collections import deque
-
-def bfs(start, graph):
-    visited = set()
-    queue = deque([start])
-    visited.add(start)
-
-    traversal = []
-
-    while queue:
-        node = queue.popleft()
-        traversal.append(node)
-
-        for neighbor in graph.get(node, []):
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(neighbor)
-
-    return traversal
-
-
-# ----------- GRAPH DEFINITION -----------
-graph = {
-    1: [2, 3],
-    2: [4, 5],
-    3: [6],
-    4: [],
-    5: [],
-    6: []
-}
-
-print(bfs(1, graph))`,
+  "main.py": {
+    content: `print("Hello, World!")`,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   },
