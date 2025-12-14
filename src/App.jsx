@@ -132,18 +132,46 @@ const handleLogout = async () => {
 
 
 const totalSteps = timeline.length;
-const slicedRecursionEvents = useMemo(() => {
-  return timeline.slice(0, currentStep + 1).map(e => ({
-    event: e.type,
-    func_name: e.func,
-    locals: e.locals,
-    return_value: e.returnValue,
-  }));
+// const slicedRecursionEvents = useMemo(() => {
+//   return timeline.slice(0, currentStep + 1).map(e => ({
+//     event: e.type,
+//     func_name: e.func,
+//     locals: e.locals,
+//     return_value: e.returnValue,
+//   }));
+// }, [timeline, currentStep]);
+
+// const activeRecursionNodeId = useMemo(() => {
+//   const evt = timeline[currentStep];
+//   if (!evt) return null;
+
+//   return evt.type === "call" ? currentStep : null;
+// }, [timeline, currentStep]);
+
+const activeRecursionNodeId = useMemo(() => {
+  const evt = timeline[currentStep];
+  if (!evt) return null;
+
+  if (evt.type === "call") return currentStep;
+
+  if (evt.type === "return") {
+    for (let i = currentStep - 1; i >= 0; i--) {
+      if (timeline[i]?.type === "call") {
+        return i;
+      }
+    }
+  }
+
+  return null;
 }, [timeline, currentStep]);
 
+
 const liveRecursionTree = useMemo(() => {
-  return buildRecursionTreeFromEvents(slicedRecursionEvents);
-}, [slicedRecursionEvents]);
+  return buildRecursionTreeFromEvents(
+    debugData?.recursion?.events || []
+  );
+}, [debugData]);
+
 
 const callStack = useMemo(() => {
   const stack = [];
@@ -186,9 +214,10 @@ function buildRecursionTreeFromEvents(events = []) {
   const stack = [];
   let root = null;
 
-  for (const e of events) {
+  events.forEach((e, idx) => {
     if (e.event === "call") {
       const node = {
+        stepIndex: idx, // ✅ FIX: idx defined here
         func: e.func_name,
         args: e.locals || {},
         children: [],
@@ -210,10 +239,11 @@ function buildRecursionTreeFromEvents(events = []) {
         node.return = e.return_value;
       }
     }
-  }
+  });
 
   return root;
 }
+
 // ******************************************************************************
 
     // ----------- VIEW RENDERING SWITCH -----------
@@ -251,21 +281,23 @@ function buildRecursionTreeFromEvents(events = []) {
               </div>
 
               <div className="w-full lg:w-2/5 flex flex-col overflow-hidden">
-                <VisualizerPane
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                    currentStep={currentStep}
-                    isExecuted={isExecuted}
-                    debugData={{
-                      ...debugData,
-                      recursion: debugData.recursion
-                        ? {
-                            ...debugData.recursion,
-                            tree: liveRecursionTree, // 🔥 LIVE TREE
-                          }
-                        : null,
-                    }}
-                  />
+              <VisualizerPane
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                currentStep={currentStep}
+                activeRecursionNodeId={activeRecursionNodeId}
+                isExecuted={isExecuted}
+                debugData={{
+                  ...debugData,
+                  recursion: debugData.recursion
+                    ? {
+                        ...debugData.recursion,
+                        tree: liveRecursionTree,
+                      }
+                    : null,
+                }}
+              />
+
 
               </div>
             </div>
