@@ -21,9 +21,9 @@ export function CodeEditor({
   /* ---------------- Load File (ONLY ON FILE CHANGE) ---------------- */
   useEffect(() => {
     if (!editorRef.current) return;
-    editorRef.current.textContent = codeContent || "";
+    editorRef.current.innerText = codeContent || "";
     updateLineNumbers(codeContent || "");
-  }, [activeFile]); // ❗ NOT on every render
+  }, [activeFile]);
 
   /* ---------------- Line Numbers ---------------- */
   const updateLineNumbers = (text) => {
@@ -35,18 +35,36 @@ export function CodeEditor({
     ).join("\n");
   };
 
-  /* ---------------- TAB Support ---------------- */
+  /* ---------------- TAB + ENTER FIX ---------------- */
   const handleKeyDown = (e) => {
+    // TAB → 4 spaces
     if (e.key === "Tab") {
       e.preventDefault();
       document.execCommand("insertText", false, "    ");
+      return;
+    }
+
+    // ENTER → real newline + auto-indent
+    if (e.key === "Enter") {
+      e.preventDefault();
+
+      const sel = window.getSelection();
+      if (!sel || !editorRef.current) return;
+
+      const text = editorRef.current.innerText || "";
+      const cursorPos = sel.anchorOffset;
+
+      const beforeCursor = text.slice(0, cursorPos);
+      const lastLine = beforeCursor.split("\n").pop() || "";
+
+      const indentMatch = lastLine.match(/^\s+/);
+      const indent = indentMatch ? indentMatch[0] : "";
+
+      document.execCommand("insertText", false, "\n" + indent);
     }
   };
 
-  /* ================================================= */
-  /* ============ LIVE DEBUG ACTIVE LINE ============== */
-  /* ================================================= */
-
+  /* ================= ACTIVE DEBUG LINE ================= */
   const activeLine = useMemo(() => {
     const evt = timeline?.[currentStep];
     if (!evt || typeof evt.lineno !== "number" || evt.lineno <= 0) {
@@ -55,7 +73,7 @@ export function CodeEditor({
     return evt.lineno;
   }, [timeline, currentStep]);
 
-  /* ---------------- Auto Scroll (REAL SCROLL TARGET) ---------------- */
+  /* ---------------- Auto Scroll ---------------- */
   useEffect(() => {
     if (!activeLine || !viewportRef.current) return;
 
@@ -93,7 +111,7 @@ export function CodeEditor({
             "
           />
 
-          {/* 🔥 ACTIVE DEBUG LINE */}
+          {/* 🔥 Active Debug Line */}
           {activeLine && (
             <div
               className="absolute left-0 right-0 bg-primary/15 z-10"
@@ -112,16 +130,17 @@ export function CodeEditor({
             suppressContentEditableWarning
             spellCheck={false}
             onKeyDown={handleKeyDown}
-            onInput={(e) => {
-              const text = e.currentTarget.textContent || "";
+            onInput={() => {
+              const text = editorRef.current.innerText || "";
               onCodeChange(text);
               updateLineNumbers(text);
             }}
             onClick={() => {
               const sel = window.getSelection();
               if (!sel || !editorRef.current) return;
+
               const pos = sel.anchorOffset;
-              const txt = editorRef.current.textContent || "";
+              const txt = editorRef.current.innerText || "";
               const line = txt.substring(0, pos).split("\n").length;
               onLineClick?.(line);
             }}
