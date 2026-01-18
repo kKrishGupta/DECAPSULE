@@ -3,10 +3,8 @@ import Editor from "@monaco-editor/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function CodeEditor({
-  selectedLine,
   onLineClick,
   currentStep,
-  language,
   isExecuted,
   codeContent,
   onCodeChange,
@@ -14,12 +12,14 @@ export function CodeEditor({
   timeline,
 }) {
   const editorRef = useRef(null);
+  const monacoRef = useRef(null);
 
   /* ---------------- Mount ---------------- */
-  const handleEditorDidMount = (editor, monaco) => {
+  const handleMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
 
-    // Python indentation & formatting
+    // Python indentation rules
     monaco.languages.setLanguageConfiguration("python", {
       indentationRules: {
         increaseIndentPattern: /:\s*$/,
@@ -27,15 +27,30 @@ export function CodeEditor({
       },
     });
 
-    // Highlight active line click
+    // Line click
     editor.onMouseDown((e) => {
       if (e.target.position) {
         onLineClick?.(e.target.position.lineNumber);
       }
     });
+
+    // Layout once (fix blinking)
+    setTimeout(() => editor.layout(), 0);
   };
 
-  /* ---------------- Active Debug Line ---------------- */
+  /* ---------------- Update Code ONLY on file change ---------------- */
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    const model = editorRef.current.getModel();
+    if (!model) return;
+
+    if (model.getValue() !== codeContent) {
+      model.setValue(codeContent || "");
+    }
+  }, [activeFile]); // 🔥 ONLY file change
+
+  /* ---------------- Debug Line Highlight ---------------- */
   const decorations = useMemo(() => {
     const evt = timeline?.[currentStep];
     if (!evt?.lineno) return [];
@@ -57,9 +72,8 @@ export function CodeEditor({
   }, [timeline, currentStep]);
 
   useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.deltaDecorations([], decorations);
-    }
+    if (!editorRef.current) return;
+    editorRef.current.deltaDecorations([], decorations);
   }, [decorations]);
 
   return (
@@ -73,22 +87,21 @@ export function CodeEditor({
           height="100%"
           language="python"
           theme="vs-dark"
-          value={codeContent}
+          defaultValue={codeContent || ""}
           onChange={(value) => onCodeChange(value ?? "")}
-          onMount={handleEditorDidMount}
+          onMount={handleMount}
           options={{
-            fontSize: 14,
-            fontFamily: "JetBrains Mono, monospace",
             minimap: { enabled: false },
-            wordBasedSuggestions: true,
-            autoIndent: "full",
-            formatOnType: true,
-            suggestOnTriggerCharacters: true,
-            quickSuggestions: true,
+            fontSize: 14,
             tabSize: 4,
             insertSpaces: true,
+            autoIndent: "full",
+            formatOnType: true,
+            wordBasedSuggestions: true,
+            quickSuggestions: true,
             readOnly: isExecuted,
             smoothScrolling: true,
+            renderWhitespace: "none",
           }}
         />
       </ScrollArea>
