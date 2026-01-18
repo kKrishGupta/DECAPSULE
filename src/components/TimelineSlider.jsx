@@ -6,14 +6,12 @@ import {
   Pause,
   SkipBack,
   Square,
+  Lock,
 } from "lucide-react";
 
 /*
 ====================================================
 TimelineSlider = CONTROL PANEL (UI ONLY)
-❌ No local state
-❌ No interval / effect
-✅ App.jsx controls everything
 ====================================================
 */
 
@@ -37,6 +35,16 @@ export function TimelineSlider({
     <div className="px-4 py-2 bg-card border-t border-border">
       <div className="flex flex-col gap-2">
 
+        {/* ================= RUNNING WARNING ================= */}
+        {isPlaying && (
+          <div className="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded px-3 py-1">
+            <Lock className="w-3 h-3" />
+            <span>
+              Code is running. <b>Pause</b> or <b>Stop</b> to edit.
+            </span>
+          </div>
+        )}
+
         {/* ================= CONTROLS ================= */}
         <div className="flex flex-wrap items-center gap-2">
 
@@ -54,9 +62,13 @@ export function TimelineSlider({
           {/* PLAY / PAUSE */}
           <Button
             size="icon"
-            className="h-8 w-8 bg-primary text-primary-foreground"
+            className={`h-8 w-8 transition-colors ${
+              isPlaying
+                ? "bg-red-500 text-white hover:bg-red-600" // 🔴 RUNNING
+                : "bg-primary text-primary-foreground hover:bg-primary/90" // 🔵 NORMAL
+            }`}
             onClick={isPlaying ? onPause : onPlay}
-            disabled={!isExecuted}
+            disabled={!isExecuted && !isPlaying}
           >
             {isPlaying ? (
               <Pause className="w-4 h-4" />
@@ -71,7 +83,7 @@ export function TimelineSlider({
             variant="ghost"
             className="h-8 w-8"
             onClick={onStop}
-            disabled={!isExecuted}
+            disabled={!isExecuted && !isPlaying}
           >
             <Square className="w-4 h-4" />
           </Button>
@@ -89,13 +101,13 @@ export function TimelineSlider({
                 onSpeedChange(Number(e.target.value))
               }
               className="h-1"
+              disabled={!isExecuted}
             />
           </div>
         </div>
 
         {/* ================= TIMELINE ================= */}
         <div className="flex items-center gap-3">
-
           <span className="text-xs font-mono text-muted-foreground min-w-[70px] text-right">
             {isExecuted ? currentStep + 1 : 0} / {totalSteps}
           </span>
