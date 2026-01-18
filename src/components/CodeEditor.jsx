@@ -13,8 +13,9 @@ export function CodeEditor({
 }) {
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
+  const decorationIds = useRef([]);
 
-  /* ---------------- Mount ---------------- */
+  /* ---------------- Editor Mount ---------------- */
   const handleMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -27,18 +28,18 @@ export function CodeEditor({
       },
     });
 
-    // Line click
+    // Line click support
     editor.onMouseDown((e) => {
       if (e.target.position) {
         onLineClick?.(e.target.position.lineNumber);
       }
     });
 
-    // Layout once (fix blinking)
+    // Force layout once (prevents blinking)
     setTimeout(() => editor.layout(), 0);
   };
 
-  /* ---------------- Update Code ONLY on file change ---------------- */
+  /* ---------------- Load Code ONLY on File Change ---------------- */
   useEffect(() => {
     if (!editorRef.current) return;
 
@@ -48,32 +49,49 @@ export function CodeEditor({
     if (model.getValue() !== codeContent) {
       model.setValue(codeContent || "");
     }
-  }, [activeFile]); // 🔥 ONLY file change
+  }, [activeFile]);
 
-  /* ---------------- Debug Line Highlight ---------------- */
+  /* ---------------- Debug Line Highlight (SAFE) ---------------- */
   const decorations = useMemo(() => {
+    if (!editorRef.current) return [];
+
     const evt = timeline?.[currentStep];
     if (!evt?.lineno) return [];
+
+    const model = editorRef.current.getModel();
+    if (!model) return [];
+
+    const totalLines = model.getLineCount();
+    const safeLine = Math.min(evt.lineno, totalLines);
+
+    // ❌ Do not highlight empty or whitespace-only lines
+    const content = model.getLineContent(safeLine).trim();
+    if (!content) return [];
 
     return [
       {
         range: {
-          startLineNumber: evt.lineno,
-          endLineNumber: evt.lineno,
+          startLineNumber: safeLine,
+          endLineNumber: safeLine,
           startColumn: 1,
-          endColumn: 1,
+          endColumn: model.getLineMaxColumn(safeLine),
         },
         options: {
           isWholeLine: true,
-          className: "bg-primary/20",
+          className: "debug-active-line",
         },
       },
     ];
   }, [timeline, currentStep]);
 
+  /* ---------------- Apply Decorations ---------------- */
   useEffect(() => {
     if (!editorRef.current) return;
-    editorRef.current.deltaDecorations([], decorations);
+
+    decorationIds.current = editorRef.current.deltaDecorations(
+      decorationIds.current,
+      decorations
+    );
   }, [decorations]);
 
   return (
@@ -93,15 +111,19 @@ export function CodeEditor({
           options={{
             minimap: { enabled: false },
             fontSize: 14,
+            fontFamily: "JetBrains Mono, monospace",
             tabSize: 4,
             insertSpaces: true,
             autoIndent: "full",
             formatOnType: true,
-            wordBasedSuggestions: true,
             quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
+            wordBasedSuggestions: true,
             readOnly: isExecuted,
             smoothScrolling: true,
-            renderWhitespace: "none",
+            cursorBlinking: "smooth",
+            cursorSmoothCaretAnimation: true,
+            scrollBeyondLastLine: false,
           }}
         />
       </ScrollArea>
