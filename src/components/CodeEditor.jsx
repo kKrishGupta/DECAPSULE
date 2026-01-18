@@ -1,7 +1,6 @@
-import React, { useMemo, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
+import Editor from "@monaco-editor/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-const LINE_HEIGHT = 24;
 
 export function CodeEditor({
   selectedLine,
@@ -15,73 +14,53 @@ export function CodeEditor({
   timeline,
 }) {
   const editorRef = useRef(null);
-  const lineRef = useRef(null);
-  const viewportRef = useRef(null);
 
-  /* ---------------- Load File (ONLY ON FILE CHANGE) ---------------- */
-  useEffect(() => {
-    if (!editorRef.current) return;
-    editorRef.current.innerText = codeContent || "";
-    updateLineNumbers(codeContent || "");
-  }, [activeFile]);
+  /* ---------------- Mount ---------------- */
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor;
 
-  /* ---------------- Line Numbers ---------------- */
-  const updateLineNumbers = (text) => {
-    if (!lineRef.current) return;
-    const count = (text || "").split("\n").length;
-    lineRef.current.textContent = Array.from(
-      { length: count },
-      (_, i) => i + 1
-    ).join("\n");
+    // Python indentation & formatting
+    monaco.languages.setLanguageConfiguration("python", {
+      indentationRules: {
+        increaseIndentPattern: /:\s*$/,
+        decreaseIndentPattern: /^\s*(return|pass|break|continue)/,
+      },
+    });
+
+    // Highlight active line click
+    editor.onMouseDown((e) => {
+      if (e.target.position) {
+        onLineClick?.(e.target.position.lineNumber);
+      }
+    });
   };
 
-  /* ---------------- TAB + ENTER FIX ---------------- */
-  const handleKeyDown = (e) => {
-    // TAB → 4 spaces
-    if (e.key === "Tab") {
-      e.preventDefault();
-      document.execCommand("insertText", false, "    ");
-      return;
-    }
-
-    // ENTER → real newline + auto-indent
-    if (e.key === "Enter") {
-      e.preventDefault();
-
-      const sel = window.getSelection();
-      if (!sel || !editorRef.current) return;
-
-      const text = editorRef.current.innerText || "";
-      const cursorPos = sel.anchorOffset;
-
-      const beforeCursor = text.slice(0, cursorPos);
-      const lastLine = beforeCursor.split("\n").pop() || "";
-
-      const indentMatch = lastLine.match(/^\s+/);
-      const indent = indentMatch ? indentMatch[0] : "";
-
-      document.execCommand("insertText", false, "\n" + indent);
-    }
-  };
-
-  /* ================= ACTIVE DEBUG LINE ================= */
-  const activeLine = useMemo(() => {
+  /* ---------------- Active Debug Line ---------------- */
+  const decorations = useMemo(() => {
     const evt = timeline?.[currentStep];
-    if (!evt || typeof evt.lineno !== "number" || evt.lineno <= 0) {
-      return null;
-    }
-    return evt.lineno;
+    if (!evt?.lineno) return [];
+
+    return [
+      {
+        range: {
+          startLineNumber: evt.lineno,
+          endLineNumber: evt.lineno,
+          startColumn: 1,
+          endColumn: 1,
+        },
+        options: {
+          isWholeLine: true,
+          className: "bg-primary/20",
+        },
+      },
+    ];
   }, [timeline, currentStep]);
 
-  /* ---------------- Auto Scroll ---------------- */
   useEffect(() => {
-    if (!activeLine || !viewportRef.current) return;
-
-    viewportRef.current.scrollTop = Math.max(
-      (activeLine - 3) * LINE_HEIGHT,
-      0
-    );
-  }, [activeLine]);
+    if (editorRef.current) {
+      editorRef.current.deltaDecorations([], decorations);
+    }
+  }, [decorations]);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -90,74 +69,28 @@ export function CodeEditor({
       </div>
 
       <ScrollArea className="flex-1">
-        <div
-          ref={viewportRef}
-          className="relative w-full h-full font-mono text-sm"
-        >
-          {/* Line Numbers */}
-          <pre
-            ref={lineRef}
-            className="
-              absolute top-0 left-0
-              w-12
-              bg-background
-              border-r border-border
-              text-right pr-2 pt-2
-              text-muted-foreground
-              select-none
-              whitespace-pre
-              leading-6
-              z-20
-            "
-          />
-
-          {/* 🔥 Active Debug Line */}
-          {activeLine && (
-            <div
-              className="absolute left-0 right-0 bg-primary/15 z-10"
-              style={{
-                top: (activeLine - 1) * LINE_HEIGHT,
-                height: LINE_HEIGHT,
-                pointerEvents: "none",
-              }}
-            />
-          )}
-
-          {/* Editable Code */}
-          <div
-            ref={editorRef}
-            contentEditable={!isExecuted}
-            suppressContentEditableWarning
-            spellCheck={false}
-            onKeyDown={handleKeyDown}
-            onInput={() => {
-              const text = editorRef.current.innerText || "";
-              onCodeChange(text);
-              updateLineNumbers(text);
-            }}
-            onClick={() => {
-              const sel = window.getSelection();
-              if (!sel || !editorRef.current) return;
-
-              const pos = sel.anchorOffset;
-              const txt = editorRef.current.innerText || "";
-              const line = txt.substring(0, pos).split("\n").length;
-              onLineClick?.(line);
-            }}
-            className="
-              relative z-20
-              pl-14
-              pr-4
-              py-2
-              whitespace-pre
-              break-words
-              outline-none
-              min-h-full
-              text-foreground
-              leading-6
-            "
-          />
-        </div>
+        <Editor
+          height="100%"
+          language="python"
+          theme="vs-dark"
+          value={codeContent}
+          onChange={(value) => onCodeChange(value ?? "")}
+          onMount={handleEditorDidMount}
+          options={{
+            fontSize: 14,
+            fontFamily: "JetBrains Mono, monospace",
+            minimap: { enabled: false },
+            wordBasedSuggestions: true,
+            autoIndent: "full",
+            formatOnType: true,
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: true,
+            tabSize: 4,
+            insertSpaces: true,
+            readOnly: isExecuted,
+            smoothScrolling: true,
+          }}
+        />
       </ScrollArea>
     </div>
   );
